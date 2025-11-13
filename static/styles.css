@@ -1,0 +1,1990 @@
+/* =========================================================
+   GAIA — ChatGPT-style Dual Theme (Light + Dark)
+   HOW TO USE:
+   - Light (default): keep as-is or add [data-theme="light"]
+   - Dark           : set [data-theme="dark"] on <html> or <body>
+   ========================================================= */
+
+/* ---------- Reset / base ---------- */
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  margin: 0;
+  font: 14px/1.55 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* ---------- LIGHT THEME (ChatGPT-like) ---------- */
+:root,
+[data-theme="light"]{
+  /* app surfaces */
+  --bg:            #f7f7f8;    /* page background */
+  --panel:         #ffffff;    /* panels/topbar/composer */
+  --panel-2:       #ffffff;
+  --text:          #111827;    /* near-slate-900 */
+  --muted:         #6b7280;    /* slate-500 */
+  --border:        #e5e7eb;    /* gray-200 */
+
+  /* bubbles */
+  --bubble-ai:     #e6f2ff;    /* assistant bubble (light */
+  --bubble-user:   #e8fce8;    /* user bubble (light green) */
+
+  /* accents */
+  --brand:         #10a37f;    /* ChatGPT accent (teal-ish) */
+  --brand-2:       #0e8d6e;
+
+  /* layout */
+  --col-max: min(1280px, 96vw); 
+  --gutter:        clamp(12px, 4vw, 24px);
+
+  /* elevation */
+  --shadow-soft:   0 8px 18px rgba(17, 24, 39, .06);
+  --shadow-hard:   0 14px 32px rgba(17, 24, 39, .10);
+}
+
+/* Glassy look for bubbles — LIGHT mode only */
+:root,
+[data-theme="light"]{
+  --ai-rgb:   230,242,255;  /* #e6f2ff */
+  --user-rgb: 232,252,232;  /* #e8fce8 */
+}
+
+/* AI bubble */
+[data-theme="light"] .msg-ai .bubble{
+  background: rgba(var(--ai-rgb), .82);
+  backdrop-filter: saturate(115%) blur(8px);
+  -webkit-backdrop-filter: saturate(115%) blur(8px);
+  border-color: rgba(17,24,39,.10);
+  box-shadow:
+    0 10px 22px rgba(17,24,39,.08),
+    inset 0 1px 0 rgba(255,255,255,.45);
+}
+
+/* User bubble */
+[data-theme="light"] .msg-user .bubble{
+  background: rgba(var(--user-rgb), .82);
+  backdrop-filter: saturate(115%) blur(8px);
+  -webkit-backdrop-filter: saturate(115%) blur(8px);
+  border-color: rgba(17,24,39,.10);
+  box-shadow:
+    0 10px 22px rgba(17,24,39,.08),
+    inset 0 1px 0 rgba(255,255,255,.45);
+}
+
+/* ——— Stronger glass shine (LIGHT mode only) ——— */
+[data-theme="light"] .bubble{
+  position: relative;
+  overflow: hidden; /* keep shine inside round corners */
+}
+
+/* Top gloss + soft vertical glow */
+[data-theme="light"] .bubble::before{
+  content: "";
+  position: absolute;
+  inset: -2px;                /* tiny bleed to avoid seams */
+  pointer-events: none;
+  background:
+    /* upper-left curved gloss */
+    radial-gradient(130% 80% at -10% -20%,
+      rgba(255,255,255,.75) 0%,
+      rgba(255,255,255,.32) 38%,
+      rgba(255,255,255,0) 46%
+    ),
+    /* faint top-to-bottom gradient */
+    linear-gradient(to bottom,
+      rgba(255,255,255,.35),
+      rgba(255,255,255,0) 48%
+    );
+  mix-blend-mode: screen;
+  opacity: .60;               /* was .45 — bumped for visibility */
+}
+
+/* Diagonal glint band (subtle but visible) */
+[data-theme="light"] .bubble::after{
+  content: "";
+  position: absolute;
+  width: 160%; height: 60%;
+  top: -30%; left: -20%;
+  transform: rotate(12deg);
+  pointer-events: none;
+  background: linear-gradient(to right,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,.35) 22%,
+    rgba(255,255,255,.18) 38%,
+    rgba(255,255,255,0) 58%
+  );
+  mix-blend-mode: screen;
+  opacity: .50;               /* visible on light blue/green */
+  filter: blur(.5px);
+}
+
+/* Slightly brighter inner edge & lift (LIGHT mode only) */
+[data-theme="light"] .msg-ai .bubble,
+[data-theme="light"] .msg-user .bubble{
+  box-shadow:
+    0 12px 24px rgba(17,24,39,.10),
+    inset 0 1px 0 rgba(255,255,255,.60),
+    inset 0 0 0 1px rgba(255,255,255,.35);
+}
+
+/* Optional: tiny hover bump to “wake up” the shine */
+[data-theme="light"] .bubble:hover::before{ opacity: .70; }
+[data-theme="light"] .bubble:hover::after { opacity: .60; }
+
+
+/* ---------- DARK THEME (ChatGPT-like) ---------- */
+[data-theme="dark"]{
+  --bg:            #0b0f19;    /* deep charcoal */
+  --panel:         #111827;    /* slate-900 */
+  --panel-2:       #0f1624;
+  --text:          #e5e7eb;    /* gray-200 */
+  --muted:         #9aa3b2;    /* slate-400/300 mix */
+  --border:        #2a3140;    /* slate-700 */
+
+  /* bubbles (assistant lighter than user) */
+  --bubble-ai:     #1f2430;    /* slate-800.5 */
+  --bubble-user:   #171b24;    /* slightly darker */
+
+  /* accents */
+  --brand:         #10a37f;
+  --brand-2:       #0e8d6e;
+
+  --shadow-soft:   0 10px 24px rgba(0,0,0,.45);
+  --shadow-hard:   0 16px 36px rgba(0,0,0,.55);
+}
+
+/* ---------- App frame ---------- */
+.shell{
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: 300px minmax(0,1fr);
+  grid-template-rows: 100dvh;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+/* ---------- Sidebar ---------- */
+.sidebar{
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 16px 14px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.brand{ display:flex; align-items:center; gap:10px }
+.orb{
+  width:34px; height:34px; border-radius:50%;
+  background: radial-gradient(62% 62% at 35% 30%, #22c8a8 0%, #10a37f 50%, #0e8d6e 100%);
+  box-shadow: 0 0 14px #10a37f33;
+}
+.brand-title{ font-weight:800; letter-spacing:.2px; color: var(--text); }
+.brand-sub{ font-size:11px; color: var(--muted); text-transform: uppercase; }
+
+.btn{
+  border:1px solid var(--border); background:transparent; color: var(--text);
+  padding:8px 10px; border-radius: 10px; cursor: pointer;
+}
+.btn:hover{ box-shadow: 0 0 0 3px #10a37f1f; }
+
+.chat-list{ overflow:auto; display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+.chat-item{
+  display:flex; align-items:center; gap:8px; padding:10px;
+  border:1px solid var(--border); border-radius:12px; background: transparent; cursor:pointer;
+  transition: transform .16s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.chat-item:hover{ transform: translateY(-1px); box-shadow: 0 0 0 3px #10a37f1f; }
+.chat-item.active{ border-color: #10a37f66; box-shadow: 0 0 0 3px #10a37f22; }
+.chat-name{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: var(--text); }
+.item-actions{ display:flex; gap:6px }
+.item-actions button{ background:transparent; border:none; color: var(--muted); cursor:pointer; }
+.item-actions button:hover{ color: var(--text); }
+
+/* ---------- Main column ---------- */
+.main{
+  display: grid; grid-template-rows: 48px minmax(0,1fr);
+  background: var(--bg);
+}
+.topbar{
+  position: sticky; top:0; z-index:5;
+  display:flex; align-items:center; gap:8px; padding:10px var(--gutter);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+/* Topbar layout: push toggle to the right */
+.topbar { justify-content: flex-start; }
+.topbar-spacer { flex: 1 1 auto; }
+
+/* Small icon button styled like ChatGPT controls */
+.icon-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:10px;
+  border:1px solid var(--border); background: var(--panel); color: var(--text);
+  cursor:pointer; box-shadow: var(--shadow-soft);
+  transition: transform .12s ease, box-shadow .18s ease, background .18s ease;
+}
+.icon-btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow-hard); }
+.icon-btn:active{ transform: translateY(0); }
+
+/* ---------- Chat column ---------- */
+.chat-column{ height:100%; display:flex; flex-direction:column; overflow:hidden; }
+.messages{
+  flex:1 1 auto;
+  overflow:auto; -webkit-overflow-scrolling: touch;
+  display:flex; flex-direction:column; align-items:stretch; gap:14px;
+
+  width:100%; max-width: var(--col-max);
+  margin: 0 auto; padding: 14px var(--gutter) 16px var(--gutter);
+  min-width:0;
+}
+.msg{ display:flex; align-items:flex-start; flex-wrap:wrap; gap:10px; width:100%; min-width:0; }
+.msg-ai   { justify-content: flex-start; }
+.msg-user { justify-content: flex-end; }
+
+/* ---------- Bubbles (ChatGPT-like) ---------- */
+.bubble{
+  display:block;
+  width: fit-content;
+  max-width: min( calc(100% - 32px), 80ch );
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  transition: transform .16s ease, box-shadow .2s ease, border-color .2s ease;
+  white-space: normal; overflow-wrap: anywhere; word-break: break-word;
+}
+.bubble:hover{ transform: translateY(-2px); box-shadow: var(--shadow-hard); }
+
+/* Assistant (white / slate) */
+.msg-ai .bubble{
+  background: var(--bubble-ai);
+  border-color: var(--border);
+}
+
+/* User bubble (soft gray / darker slate) */
+.msg-user .bubble{
+  background: var(--bubble-user);
+  border-color: var(--border);
+}
+
+/* Markdown niceties */
+.bubble a{ color:#0ea5e9; text-decoration: none; border-bottom: 1px solid #cfe0ff33; }
+[data-theme="dark"] .bubble a{ color:#7cc6ff; border-bottom-color:#2a3140; }
+.bubble code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: .95em; background: #f4f4f5; border:1px solid #e5e7eb; padding:.15em .4em; border-radius:.35em;
+}
+[data-theme="dark"] .bubble code{
+  background:#151a23; border-color:#2a3140; color:#e5e7eb;
+}
+.bubble pre{
+  background:#0b1220; color:#e7ecff; border-radius:12px; border:1px solid #1a2444; padding:14px; overflow:auto;
+}
+[data-theme="light"] .bubble pre{
+  background:#0b1220; color:#e7ecff; border-color:#1a2444;
+}
+
+/* Meta under bubble */
+.msg > .bubble { order: 1; }
+.msg > .msg-meta{
+  order: 2; flex: 0 0 100%; width: 100%;
+  margin-top: 6px; font-size: 11px; color: var(--muted);
+  text-align: left;
+}
+.msg-user > .msg-meta{ text-align: right; }
+
+/* ---------- Composer ---------- */
+.composer{ flex-shrink:0; padding: 2px 0 max(env(safe-area-inset-bottom,16px),16px); }
+.composer-inner{
+  width:100%; max-width: var(--col-max); margin: 0 auto 6px auto; padding:10px;
+  display:grid; gap:10px; grid-template-columns: 150px auto 1fr auto; /* model | + | input | send */
+  border:1px solid var(--border); border-radius: 12px; background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+.model-select{
+  border:1px solid var(--border); background: var(--panel); color: var(--text);
+  border-radius:10px; padding:8px; min-width:0; max-width:100%;
+}
+#input{
+  background: transparent; color: var(--text);
+  border:none; outline:none; resize:none; min-width:0;
+  font-size: 14px; line-height: 1.55; padding: 8px 6px; border-radius: 10px;
+}
+.more{
+  width:40px; height:40px; border:1px solid var(--border);
+  border-radius:10px; background: var(--panel); color: var(--text); cursor:pointer;
+}
+.send{
+  width:44px; height:40px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color:#fff; border:none; border-radius:10px; cursor:pointer; font-weight:700;
+  box-shadow: 0 10px 18px #10a37f33;
+  transition: transform .12s ease, box-shadow .18s ease, filter .18s ease;
+}
+.send:hover{ transform: translateY(-1px); filter: brightness(1.04); }
+.send:active{ transform: translateY(0); box-shadow: 0 6px 12px #10a37f2a; }
+.send:disabled{ opacity:.6; cursor:not-allowed; }
+
+/* ---------- Responsiveness ---------- */
+@media (min-width:901px){
+  .shell{ grid-template-columns: clamp(220px, 24vw, 300px) minmax(0,1fr); }
+}
+@media (max-width:900px){
+  .shell{ grid-template-columns: 0 minmax(0,1fr); }
+  .sidebar{ display:none; }
+  .messages, .composer-inner, .hint{
+    width: 100vw; max-width: 100vw; margin-left:auto; margin-right:auto;
+    padding-left: 12px; padding-right: 12px;
+  }
+}
+@media (max-width:1100px){
+  .composer-inner{ grid-template-columns: 140px 1fr auto; }
+  .more{ display:none; }
+}
+@media (max-width:820px){
+  .composer-inner{ grid-template-columns: 1fr auto; gap: 8px; }
+  .model-select{ grid-column: 1 / -1; }
+}
+@media (max-width:640px){
+  .messages{ gap: 12px; }
+  .msg-ai .bubble{ width: 100%; max-width: 100%; }  /* assistant can use full width on phone */
+  .msg-user .bubble{ max-width: 88%; margin-left: auto; }
+}
+
+/* ---------- Scrollbars ---------- */
+.messages::-webkit-scrollbar{ width:10px; height:10px; }
+.messages::-webkit-scrollbar-track{ background: transparent; }
+.messages::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, #cfd3dc, #bfc4cd);
+  border-radius:10px; border:2px solid transparent; background-clip: padding-box;
+}
+[data-theme="dark"] .messages::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, #2a3140, #222834);
+}
+
+/* ---------- Guards ---------- */
+.sidebar, .composer-inner, .bubble, .chat-item, .btn, .model-select, #input, .send{
+  max-width:100%; min-width:0;
+}
+
+/* === Bubble actions (below bubble, right-aligned) === */
+
+/* Make the bubble + actions stack vertically and size to bubble width */
+.bubble-wrap{
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;   /* right edge of this bubble */
+  gap: 6px;
+}
+
+/* Actions row now sits under the bubble */
+.bubble-actions{
+  position: static;        /* no absolute positioning */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+/* Show on hover (same behavior as before) */
+.msg:hover .bubble-actions{
+  opacity: 1;
+  transform: none;
+}
+
+/* ChatGPT-like small pill buttons */
+.bubble-actions .icon{
+  height: 26px; min-width: 26px;
+  padding: 0 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: transform .12s ease, box-shadow .18s ease, color .18s ease, background .18s ease;
+}
+.bubble-actions .icon:hover{
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hard);
+  color: var(--text);
+}
+
+/* Deleted state rules unchanged */
+.msg.is-deleted .bubble{ filter: saturate(.6) opacity(.6); }
+.msg.is-deleted .bubble::before,
+.msg.is-deleted .bubble::after{ display: none; }
+.deleted-note{ font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* Per-code-block copy button unchanged */
+.bubble pre{ position: relative; }
+.copy-code-btn{
+  position: absolute; top: 8px; right: 8px;
+  padding: 4px 8px; font-size: 12px; line-height: 1;
+  border: 1px solid var(--border); background: var(--panel);
+  border-radius: 8px; cursor: pointer; opacity: 0;
+  transition: opacity .15s ease;
+}
+.bubble pre:hover .copy-code-btn{ opacity: 1; }
+
+/* Meta now lives INSIDE .bubble-wrap (under bubble) */
+.bubble-wrap .msg-meta{
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  width: 100%;             /* match bubble width */
+}
+
+/* Align like before: AI left, User right */
+.msg-ai   .bubble-wrap .msg-meta{ text-align: left; }
+.msg-user .bubble-wrap .msg-meta{ text-align: right; }
+
+/* If you still have this old selector, it no longer applies but is harmless:
+   .msg > .msg-meta { ... } 
+   You can remove it later to avoid confusion. */
+
+
+   /* One-line footer under bubble: meta + actions */
+.bubble-foot{
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* meta on one side, actions at far right */
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* Meta text fills remaining space; align per role */
+.bubble-foot .msg-meta{ flex: 1; font-size: 11px; color: var(--muted); }
+.msg-ai   .bubble-foot .msg-meta{ text-align: left; }
+.msg-user .bubble-foot .msg-meta{ text-align: right; }
+
+/* Keep actions right-aligned and hover-reveal */
+.bubble-foot .bubble-actions{
+  position: static;
+  display: flex; align-items: center; gap: 6px;
+  opacity: 0; transform: translateY(-2px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+.msg:hover .bubble-foot .bubble-actions{ opacity: 1; transform: none; }
+
+/* Show Save/Cancel without hover only while editing */
+.msg.is-editing .bubble-foot .bubble-actions{
+  opacity: 1;
+  transform: none;
+}
+
+/* Inline bubble editor */
+.bubble-editor{
+  width: 100%;
+  min-height: 44px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit; line-height: 1.55;
+  padding: 8px 10px;
+  border-radius: 10px;
+  resize: vertical;
+  outline: none;
+}
+
+/* Light hint that you're editing; keeps your theme colors */
+.msg-user .bubble-editor{
+  background: rgba(var(--user-rgb, 232,252,232), .55);
+}
+[data-theme="light"] .msg-ai .bubble-editor{
+  background: rgba(var(--ai-rgb, 230,242,255), .55);
+}
+
+/* One-line footer already exists. Add a right tools group */
+.bubble-foot .right-tools{
+  display:flex; align-items:center; gap:6px;
+}
+
+/* Version pager (always visible when a branch exists) */
+.version-pager{
+  height:26px; padding:0 10px; font-size:12px; line-height:1;
+  border:1px solid var(--border); border-radius:8px;
+  background: var(--panel); color: var(--muted);
+  cursor:pointer; box-shadow: var(--shadow-soft);
+  transition: transform .12s ease, box-shadow .18s ease, color .18s ease, background .18s ease;
+}
+.version-pager:hover{
+  transform: translateY(-1px); box-shadow: var(--shadow-hard); color: var(--text);
+}
+
+/* Tiny tag inside meta for 'edited' label */
+.msg-meta .tag{
+  display:inline-block; margin-left:6px; padding:2px 6px; font-size:10px; line-height:1;
+  border:1px solid var(--border); border-radius:6px; background: var(--panel); color: var(--muted);
+}
+
+.toolbar { display:flex; gap:.5rem; align-items:center; }
+.btn { padding:.45rem .8rem; border-radius:1rem; border:1px solid transparent; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+.btn:hover { transform:translateY(-1px); }
+.btn[disabled] { opacity:.5; cursor:not-allowed; transform:none; }
+.btn.ghost { background:transparent; border-color:rgba(0,0,0,.1); }
+
+.action-regenerate { background:transparent; border:none; cursor:pointer; opacity:.8; }
+.action-regenerate:hover { opacity:1; }
+
+.btn.loading::after { content:""; display:inline-block; width:.8em; height:.8em; margin-left:.5em; border:.13em solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin .9s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Make sure composer controls accept clicks even if a sibling overlay exists */
+#btn-stop, #btn-regenerate { pointer-events: auto; position: relative; z-index: 2; }
+
+/* Composer controls styling */
+.composer .btn.compact { 
+  padding: .35rem .6rem; 
+  border-radius: .75rem; 
+  border: 1px solid rgba(0,0,0,.12);
+  margin-right: .25rem;
+}
+.composer .btn.compact.ghost { background: transparent; }
+.composer .btn.compact[disabled] { opacity: .5; cursor: not-allowed; }
+
+.composer-ctrls { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+
+/* --- Spaces panel in the sidebar --- */
+.spaces-panel { margin-top: .75rem; padding-top: .5rem; border-top: 1px dashed var(--border, rgba(0,0,0,.12)); }
+.spaces-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:.25rem; }
+.spaces-title { font-weight:600; opacity:.8; }
+.spaces-list { display:flex; flex-direction:column; gap:.25rem; }
+.space-item { padding:.35rem .5rem; border-radius:.5rem; cursor:pointer; }
+.space-item:hover { background: var(--hover, rgba(0,0,0,.04)); }
+.space-item.active { background: var(--active, rgba(0,0,0,.06)); font-weight:600; }
+.space-empty { opacity:.6; font-size:.9em; padding:.25rem .5rem; }
+
+/* --- Space Home view (in main column) --- */
+.space-home { display:flex; align-items:center; justify-content:center; min-height: 40vh; padding: 2rem; }
+.sop-card { width:min(720px, 92%); border:1px solid rgba(0,0,0,.1); border-radius:1rem; padding:1rem 1.25rem; box-shadow:0 6px 20px rgba(0,0,0,.06); background:var(--bg, #fff); }
+.sop-title { font-weight:700; margin-bottom:.5rem; }
+.sop-body { padding:.5rem .75rem; border:1px dashed rgba(0,0,0,.15); border-radius:.75rem; background:rgba(0,0,0,.02); min-height:3.5rem; }
+.sop-actions { margin-top:.75rem; display:flex; gap:.5rem; justify-content:flex-end; }
+
+/* ===== Spaces (sidebar) ===== */
+.spaces-section { margin-top:.5rem; padding-top:.5rem; border-top:1px dashed var(--border,rgba(0,0,0,.12)); }
+.spaces-section .sidebar-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:.4rem; }
+.sidebar-title { font-weight:600; opacity:.85; }
+.spaces-list { display:flex; flex-direction:column; gap:.25rem; }
+
+.space-item { border-radius:.6rem; }
+.space-row { display:flex; align-items:center; gap:.5rem; padding:.35rem .5rem; cursor:pointer; border-radius:.6rem; }
+.space-row:hover { background:var(--hover, rgba(0,0,0,.05)); }
+.space-row .caret { opacity:.6; font-size:.9em; }
+.space-row .space-name { font-weight:600; }
+.chip { margin-left:auto; border:1px solid rgba(0,0,0,.15); border-radius:.6rem; padding:.05rem .4rem; font-size:.75em; opacity:.8; }
+.chip-set { background:rgba(0,0,0,.04); }
+
+.space-chats { margin:.15rem 0 .35rem 1.4rem; display:flex; flex-direction:column; gap:.2rem; }
+.space-chats .chat-item { display:flex; align-items:center; justify-content:space-between; padding:.3rem .45rem; border-radius:.5rem; cursor:pointer; }
+.space-chats .chat-item:hover { background:var(--hover, rgba(0,0,0,.05)); }
+.space-empty { opacity:.6; font-size:.9em; padding:.2rem .4rem; }
+
+/* Wrap existing chat list as "Chats" section (unassigned) */
+.chats-section .sidebar-head { display:flex; align-items:center; justify-content:space-between; margin:.75rem 0 .35rem; }
+
+/* ===== Space Home (main column) ===== */
+.space-home { display:flex; align-items:center; justify-content:center; min-height:40vh; padding:2rem; }
+.sop-card { width:min(720px, 92%); border:1px solid rgba(0,0,0,.1); border-radius:1rem; padding:1rem 1.25rem; box-shadow:0 6px 20px rgba(0,0,0,.06); background:var(--bg, #fff); }
+.sop-title { font-weight:700; margin-bottom:.5rem; }
+.sop-body { padding:.5rem .75rem; border:1px dashed rgba(0,0,0,.15); border-radius:.75rem; background:rgba(0,0,0,.02); min-height:3.2rem; }
+.sop-actions { margin-top:.75rem; display:flex; gap:.5rem; justify-content:flex-end; }
+
+/* center the chat bar and make it 80% wide */
+.chat-footer .input-bar, .composer .input-bar, .composer {
+  width: 80%;
+  margin-inline: 10%;      /* leaves 10% on left/right */
+  box-sizing: border-box;
+}
+
+/* Let the backdrop be visible but NOT catch clicks */
+.space-settings-backdrop,
+.space-overlay,
+.modal-backdrop {
+  pointer-events: none !important;
+}
+
+/* Keep the actual card interactive */
+.space-settings-card,
+.space-sop-card,
+.space-panel {
+  pointer-events: auto !important;
+}
+
+/* Make sure the left rail sits above low z-index overlays */
+.left-rail, .sidebar, #sidebar {
+  position: relative;
+  z-index: 30;
+}
+
+/* If you use a dedicated overlay layer, keep it below sidebar but above canvas */
+.space-settings-layer, .space-overlay-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+
+/* === Spaces: expand/collapse + actions === */
+.space-item { position: relative; }
+.space-item .caret { display:inline-block; transition: transform .15s ease; }
+.space-item.collapsed .space-chats { display: none; }
+.space-item:not(.collapsed) .caret { transform: rotate(90deg); }
+
+.space-row .space-actions {
+  margin-left: .25rem;
+  display: inline-flex;
+  gap: .25rem;
+  opacity: .0;
+  transition: opacity .12s ease;
+}
+.space-row:hover .space-actions { opacity: .9; }
+
+.icon-btn {
+  border: 0;
+  background: transparent;
+  padding: .15rem .25rem;
+  border-radius: .35rem;
+  cursor: pointer;
+  line-height: 1;
+  font-size: .9em;
+}
+.icon-btn:hover { background: var(--hover, rgba(0,0,0,.06)); }
+
+/* ------- rail variables (safe fallbacks) ------- */
+:root{
+  --rail-pad-y: 8px;
+  --rail-pad-x: 10px;
+  --rail-radius: 10px;
+  --rail-gap: 6px;
+
+  /* subtle hovers + selected chip (use your theme vars if you have them) */
+  --rail-hover: rgba(0,0,0,.05);
+  --rail-active: rgba(58,115,255,.12); /* light blue hint */
+}
+
+/* reset lists to a clean vertical stack */
+.spaces-list, .chats-list{
+  display: flex;
+  flex-direction: column;
+  gap: var(--rail-gap);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* ---- space row (borderless pill) ---- */
+.space-row{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--rail-pad-y) var(--rail-pad-x);
+  border: 0 !important;
+  background: transparent;
+  border-radius: var(--rail-radius);
+}
+
+/* hover like chatgpt left rail */
+.space-row:hover{ background: var(--rail-hover); }
+
+/* caret + name alignment */
+.space-row .caret{ width: 14px; text-align: center; opacity:.8; }
+.space-row .space-name{
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* SOP / No SOP chip stays tight */
+.space-row .chip{ margin-left: 4px; }
+
+/* actions (rename/delete) appear on hover only */
+.space-row .space-actions{
+  display: inline-flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.space-row:hover .space-actions{ opacity: .9; }
+
+/* ---- nested chats under a space (indent, no borders) ---- */
+.space-chats{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 6px 18px;     /* subtle indent like ChatGPT */
+  padding-left: 0;
+}
+
+/* chat item pill */
+.chat-item{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 0 !important;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+/* hover + active states */
+.chat-item:hover{ background: var(--rail-hover); }
+
+/* support multiple “selected” conventions */
+.chat-item.active, 
+.chat-item.is-active, 
+.chat-item[aria-current="true"]{
+  background: var(--rail-active);
+}
+
+/* icon buttons in rail */
+.icon-btn{
+  border: 0;
+  background: transparent;
+  padding: .15rem .25rem;
+  border-radius: .35rem;
+  cursor: pointer;
+  line-height: 1;
+  font-size: .9em;
+}
+.icon-btn:hover{ background: var(--rail-hover); }
+
+/* === Compact spacing for collapsed spaces (ChatGPT-like) === */
+:root{
+  /* 2–6px depending on screen height; feels like ChatGPT */
+  --space-gap-collapsed: clamp(2px, 0.4vh, 6px);
+  --space-gap-expanded: clamp(6px, 0.8vh, 10px);
+}
+
+/* remove any old gaps; control spacing ourselves */
+.spaces-list{ gap: 0 !important; }
+.space-item{ margin: 0 !important; }
+
+/* tiny gap only when a space is collapsed */
+.space-item.collapsed{ 
+  margin-bottom: var(--space-gap-collapsed) !important;
+  padding-bottom: 0 !important;
+}
+
+/* a little breathing room when expanded */
+.space-item:not(.collapsed){
+  margin-bottom: var(--space-gap-expanded) !important;
+}
+
+/* keep the row tight (no extra margins) */
+.space-row{ 
+  margin: 0 !important;
+  padding-top: 6px; 
+  padding-bottom: 6px; 
+}
+
+/* nested chat list: no extra bottom space; slight top indent only */
+.space-chats{
+  margin: 4px 0 0 18px !important;
+}
+
+/* Space row: prepare for absolute actions on the right */
+.space-row{
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Name grows, we’ll reserve right-side room only on hover */
+.space-row .space-name{
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 0;                 /* no reserved space by default */
+}
+.space-row:hover .space-name{
+  padding-right: 56px;              /* room for actions so text doesn’t sit under them */
+}
+
+/* Actions: absolutely positioned; hidden by default; take NO layout space */
+.space-row .space-actions{
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s ease;
+}
+.space-row:hover .space-actions{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Two SOP chips: right one shows normally; left one shows on hover */
+.chip-left{ 
+  display: none; 
+  margin-left: 6px;                 /* sits near the name on hover */
+}
+.chip-right{ 
+  margin-left: auto;                /* push to the far right when idle */
+}
+.space-row:hover .chip-right{ display: none; }
+.space-row:hover .chip-left{ display: inline-flex; }
+
+/* (optional polish) keep caret tidy */
+.space-row .caret{ width: 14px; text-align: center; opacity: .8; }
+
+/* ---------- rail row scaffold ---------- */
+.space-row{
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* name grows; we only pad-right on hover so actions don't overlap text */
+.space-row .space-name{
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 0;
+}
+.space-row:hover .space-name{ padding-right: 72px; } /* room for 2 icons */
+
+/* ---------- SOP chips: swap right→left on hover ---------- */
+/* right chip sits at the far-right by default (absolute, no layout space) */
+.space-row .chip-right{
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  transition: opacity .12s ease, visibility .12s ease;
+}
+
+/* left chip is inline next to the name; hidden until hover */
+.space-row .chip-left{ display: none; margin-left: 6px; }
+
+/* on hover: hide right chip, show left chip */
+.space-row:hover .chip-right{ opacity: 0; visibility: hidden; }
+.space-row:hover .chip-left{ display: inline-flex; }
+
+/* ---------- actions: icon-only circles (absolute, no layout space) ---------- */
+:root{
+  --icon-fg: #fff;
+  --icon-edit-bg: #111;     /* black */
+  --icon-del-bg: #e5484d;   /* red */
+  --icon-shadow: 0 1px 2px rgba(0,0,0,.12), 0 4px 12px rgba(0,0,0,.08);
+  --rail-hover: rgba(0,0,0,.05);
+}
+[data-theme="dark"]{
+  --rail-hover: rgba(255,255,255,.06);  /* nicer hover in dark */
+  /* keep edit black + delete red per request */
+}
+
+.space-row .space-actions{
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  gap: 8px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .12s ease, visibility .12s ease;
+}
+
+/* reveal actions on hover */
+.space-row:hover .space-actions{
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* circular icon buttons */
+.icon-circle{
+  width: 28px; height: 28px;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  border-radius: 999px;
+  box-shadow: var(--icon-shadow);
+  color: var(--icon-fg);
+  line-height: 1;
+  font-size: 13px;          /* size of the glyph inside */
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  transition: transform .08s ease, filter .12s ease;
+}
+.icon-circle.is-edit { background: var(--icon-edit-bg); }
+.icon-circle.is-delete { background: var(--icon-del-bg); }
+
+.icon-circle:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.icon-circle:active { transform: translateY(0); }
+
+/* keep row hover clean */
+.space-row:hover{ background: var(--rail-hover); }
+
+/* ensure chips never sit on top of the actions */
+.space-row .chip-right{ z-index: 1; }
+.space-row .space-actions{ z-index: 2; }
+
+/* --- Force chip swap + keep icons clear --- */
+
+/* default: show the right chip, hide the left chip */
+.space-row .chip-left  { display: none !important; }
+.space-row .chip-right { 
+  display: inline-flex !important;
+  position: absolute; 
+  top: 50%; 
+  right: 8px; 
+  transform: translateY(-50%);
+  z-index: 1;                    /* below the action icons */
+}
+
+/* on hover: hide right chip entirely, show left chip near the name */
+.space-row:hover .chip-right { display: none !important; }
+.space-row:hover .chip-left  { display: inline-flex !important; margin-left: 6px; }
+
+/* name: add room for icons only while hovering */
+.space-row .space-name{ 
+  flex: 1 1 auto; 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  padding-right: 0;
+}
+.space-row:hover .space-name{ padding-right: 72px; } /* room for two round icons */
+
+/* action icons: absolute, no layout space; appear only on hover */
+.space-row .space-actions{
+  position: absolute; 
+  top: 50%; 
+  right: 8px; 
+  transform: translateY(-50%);
+  display: inline-flex; 
+  gap: 8px;
+  opacity: 0; 
+  visibility: hidden; 
+  pointer-events: none;
+  z-index: 2;                    /* above chips */
+  transition: opacity .12s ease, visibility .12s ease;
+}
+.space-row:hover .space-actions{ 
+  opacity: 1; 
+  visibility: visible; 
+  pointer-events: auto; 
+}
+
+/* round icon-only buttons (edit=black, delete=red) */
+:root{
+  --icon-fg: #fff;
+  --icon-edit-bg: #111;      /* black */
+  --icon-del-bg: #e5484d;    /* red */
+  --icon-shadow: 0 1px 2px rgba(0,0,0,.12), 0 4px 12px rgba(0,0,0,.08);
+  --rail-hover: rgba(0,0,0,.05);
+}
+[data-theme="dark"]{
+  --rail-hover: rgba(255,255,255,.06);
+  /* keep black/red icons as requested */
+}
+
+.icon-circle{
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; border: none; cursor: pointer; user-select: none;
+  color: var(--icon-fg); box-shadow: var(--icon-shadow);
+  font-size: 13px; line-height: 1;
+  transition: transform .08s ease, filter .12s ease;
+}
+.icon-circle.is-edit   { background: var(--icon-edit-bg); }
+.icon-circle.is-delete { background: var(--icon-del-bg); }
+.icon-circle:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.icon-circle:active{ transform: translateY(0); }
+
+/* tidy row hover */
+.space-row:hover{ background: var(--rail-hover); }
+
+/* Default: show RIGHT chip at far-right; hide LEFT chip */
+.space-row .chip-left  { display: none !important; }
+.space-row .chip-right {
+  display: inline-flex !important;
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  z-index: 1; /* below action icons */
+}
+
+/* On hover: hide RIGHT chip, show LEFT chip next to the name */
+.space-row:hover .chip-right { display: none !important; }
+.space-row:hover .chip-left  { display: inline-flex !important; margin-left: 6px; }
+
+/* Name: reserve room for the icons only while hovering */
+.space-row .space-name{
+  flex: 1 1 auto;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding-right: 0;
+}
+.space-row:hover .space-name{ padding-right: 72px; } /* room for 2 round icons */
+
+/* Actions: round icon-only buttons, absolutely positioned; appear on hover */
+:root{
+  --icon-fg: #fff;
+  --icon-edit-bg: #111;      /* edit = black */
+  --icon-del-bg: #e5484d;    /* delete = red */
+  --icon-shadow: 0 1px 2px rgba(0,0,0,.12), 0 4px 12px rgba(0,0,0,.08);
+  --rail-hover: rgba(0,0,0,.05);
+}
+[data-theme="dark"], .dark{
+  --rail-hover: rgba(255,255,255,.06); /* dark-mode hover */
+  /* edit stays black, delete stays red as requested */
+}
+
+.space-row .space-actions{
+  position: absolute;
+  top: 50%; right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex; gap: 8px;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  z-index: 2; /* above chips */
+  transition: opacity .12s ease, visibility .12s ease;
+}
+.space-row:hover .space-actions{
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
+
+.icon-circle{
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; border: none; cursor: pointer; user-select: none;
+  color: var(--icon-fg); box-shadow: var(--icon-shadow);
+  font-size: 13px; line-height: 1;
+  transition: transform .08s ease, filter .12s ease;
+}
+.icon-circle.is-edit   { background: var(--icon-edit-bg); }
+.icon-circle.is-delete { background: var(--icon-del-bg); }
+.icon-circle:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.icon-circle:active{ transform: translateY(0); }
+
+/* Optional: tidy row hover */
+.space-row:hover{ background: var(--rail-hover); }
+
+/* ==== SPACES: icon-only actions like chat, visible on hover; no SOP chip ==== */
+.spaces-section .space-row{ position: relative; }
+
+/* hide any legacy chip in spaces (if left in DOM for any reason) */
+.spaces-section .space-row .chip{ display: none !important; }
+
+/* keep title from sitting under the icons on hover */
+.spaces-section .space-row .space-name{ padding-right: 0; }
+.spaces-section .space-row:hover .space-name{ padding-right: 44px; }
+
+/* actions pinned to the right; shown only on hover; take no layout space */
+.spaces-section .space-row .space-actions{
+  position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+  display: inline-flex; gap: 8px;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .12s ease, visibility .12s ease;
+}
+.spaces-section .space-row:hover .space-actions{
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
+
+/* icon-only look (match chat): small grey glyphs, subtle hover */
+:root{
+  --space-icon: #6b7280;            /* slate-500-ish (light) */
+  --space-icon-hover: #111827;      /* deeper on hover */
+  --space-icon-dark: #a8b3c2;       /* muted grey (dark) */
+  --space-icon-dark-hover: #e5e7eb; /* light on hover (dark) */
+}
+.spaces-section .icon-ghost{
+  border: 0; background: transparent; padding: 0;
+  color: var(--space-icon); font-size: 13px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 4px; opacity: .85;
+  cursor: pointer; user-select: none;
+}
+.spaces-section .icon-ghost:hover{ 
+  opacity: 1; color: var(--space-icon-hover); 
+  background: var(--hover, rgba(0,0,0,.05));
+}
+
+/* dark mode */
+[data-theme="dark"] .spaces-section .icon-ghost{
+  color: var(--space-icon-dark);
+}
+[data-theme="dark"] .spaces-section .icon-ghost:hover{
+  color: var(--space-icon-dark-hover);
+  background: rgba(255,255,255,.06);
+}
+
+/* ====== HOVER-ONLY ACTIONS (scoped) ====== */
+
+/* A) Chats inside a Space (nested list) */
+.spaces-section .space-chats .chat-item{
+  position: relative;
+}
+.spaces-section .space-chats .chat-name{
+  /* Reserve a little room so text never sits under icons */
+  padding-right: 44px;
+}
+.spaces-section .space-chats .item-actions{
+  position: absolute;
+  top: 50%; right: 8px; transform: translateY(-50%);
+  display: inline-flex; gap: 8px;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .12s ease, visibility .12s ease;
+}
+.spaces-section .space-chats .chat-item:hover .item-actions{
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
+
+/* B) Chats section (#chat-list) */
+#chat-list .chat-item{
+  position: relative;
+  display: flex; align-items: center;
+}
+#chat-list .chat-item .chat-name{
+  flex: 1 1 auto;
+  padding-right: 44px;          /* reserve space for the icons */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#chat-list .chat-item .item-actions{
+  position: absolute;
+  top: 50%; right: 8px; transform: translateY(-50%);
+  display: inline-flex; gap: 8px;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .12s ease, visibility .12s ease;
+}
+#chat-list .chat-item:hover .item-actions{
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
+
+/* icon style shared with both lists */
+:root{
+  --chat-icon: #6b7280;            /* slate-500 */
+  --chat-icon-hover: #111827;      /* darker on hover */
+  --chat-icon-dark: #a8b3c2;       /* dark theme base */
+  --chat-icon-dark-hover: #e5e7eb;
+  --chat-icon-hover-bg: var(--hover, rgba(0,0,0,.05));
+}
+.icon-ghost{
+  border: 0; background: transparent; padding: 0;
+  color: var(--chat-icon);
+  font-size: 13px; line-height: 1;
+  width: 18px; height: 18px; border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; user-select: none; opacity: .9;
+}
+.icon-ghost:hover{
+  color: var(--chat-icon-hover);
+  background: var(--chat-icon-hover-bg);
+  opacity: 1;
+}
+[data-theme="dark"] .icon-ghost{
+  color: var(--chat-icon-dark);
+}
+[data-theme="dark"] .icon-ghost:hover{
+  color: var(--chat-icon-dark-hover);
+  background: rgba(255,255,255,.06);
+}
+
+/* === Compact spacing between collapsed spaces (only) === */
+.spaces-section .spaces-list { gap: 0 !important; }               /* neutralize list gap */
+.spaces-section .space-item   { margin: 0 !important; }            /* reset any margins */
+
+/* collapse state = caret right; make the gap tiny */
+:root { --space-gap-collapsed: clamp(1px, 0.3vh, 4px); }
+.spaces-section .space-item.collapsed { margin-bottom: var(--space-gap-collapsed) !important; }
+
+
+/* ensure nothing inside adds extra gap while collapsed */
+.spaces-section .space-item.collapsed .space-chats {
+  display: none !important;
+  margin: 0 !important;
+}
+
+@media (hover: none) {
+  .spaces-section .space-row .space-actions{ opacity:1; visibility:visible; pointer-events:auto; }
+}
+
+/* ===== GAIA modal look (rounded, centered, grey tones) ===== */
+
+/* Centering is handled by the backdrop flex; just ensure it's on */
+.gaia-modal-backdrop { display: none; }
+.gaia-modal-backdrop.is-open {
+  display: flex;                 /* center */
+  align-items: center;
+  justify-content: center;
+}
+
+/* Panel: very light grey + big radius */
+:root {
+  --modal-radius: 22px;
+  --modal-grey: #f5f6f8;         /* very light grey box */
+  --ok-grey:   #1f2937;          /* dark grey (OK) */
+  --cancel-grey: #6b7280;        /* medium grey (Cancel) */
+  --modal-shadow: 0 20px 45px rgba(0,0,0,.18), 0 6px 18px rgba(0,0,0,.10);
+}
+[data-theme="dark"] {
+  /* darker panel for dark mode while keeping the same vibe */
+  --modal-grey: #0f1520;
+  --modal-shadow: 0 28px 60px rgba(0,0,0,.55);
+}
+
+.gaia-modal-panel {
+  width: min(560px, 92vw);
+  max-height: min(80vh, 720px);
+  background: var(--modal-grey);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--modal-radius);
+  box-shadow: var(--modal-shadow);
+  transform: translateY(6px) scale(.98);
+  opacity: 0;
+  animation: gaia-modal-in .18s ease-out forwards;
+}
+@keyframes gaia-modal-in { to { transform:none; opacity:1; } }
+
+.gaia-modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); font-weight: 700; }
+.gaia-modal-body { padding: 16px 20px; }
+.gaia-modal-foot { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Inputs inside modal a bit rounder to match */
+.gaia-modal-body .input, .gaia-modal-body input[type="text"], .gaia-modal-body textarea {
+  border-radius: 12px; padding: 10px 12px; width: 100%;
+}
+
+/* Buttons */
+.gaia-modal-foot .btn { border: none; border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+.gaia-modal-foot .btn.ok {
+  background: var(--ok-grey); color: #fff;
+}
+.gaia-modal-foot .btn.cancel {
+  background: var(--cancel-grey); color: #fff;
+}
+.gaia-modal-foot .btn.ok:hover     { filter: brightness(1.05); }
+.gaia-modal-foot .btn.cancel:hover { filter: brightness(1.05); }
+
+/* Corner X */
+.gaia-modal-close {
+  position: absolute; top: 10px; right: 10px;
+  width: 34px; height: 34px; border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--muted);
+}
+.gaia-modal-close:hover { background: rgba(0,0,0,.06); }
+[data-theme="dark"] .gaia-modal-close:hover { background: rgba(255,255,255,.06); }
+
+/* Lock page scroll while modal open */
+.modal-open { overflow: hidden !important; }
+
+:root { --modal-radius: 28px; }
+
+/* --- GAIA V5 minimal: + popover (scoped, won’t affect existing layout) --- */
+.plus-menu[hidden] { display: none !important; }
+.plus-menu {
+  position: fixed; /* we’ll position via JS under the + button */
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  padding: 6px;
+  z-index: 9999;
+}
+.plus-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.plus-item:hover:not(:disabled) { background: rgba(0,0,0,0.04); }
+.plus-item:disabled { opacity: 0.55; cursor: not-allowed; }
+.pi-emoji { width: 18px; display: inline-block; }
+.pi-text { white-space: nowrap; }
+
+/* GAIA V5: + menu refinements */
+.plus-menu {
+  position: fixed;
+  min-width: 240px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;               /* softer corners */
+  box-shadow: 0 18px 40px rgba(0,0,0,0.14);
+  padding: 6px;
+  z-index: 9999;
+  animation: plusMenuIn 120ms ease-out;
+}
+
+.plus-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;               /* rounded hover */
+  cursor: pointer;
+  text-align: left;
+}
+
+.plus-item:hover:not(:disabled) {
+  background: rgba(0,0,0,0.04);
+}
+
+.plus-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@keyframes plusMenuIn {
+  from { transform: translateY(4px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+/* GAIA V5: inline chips (compact, single-line) */
+/* GAIA V5: chips show ABOVE the chat bar */
+/* Chips above chatbar */
+#chatbar { position: relative; }
+
+.attach-chips[hidden] { display: none !important; }
+
+/* V6: chips should align with the textarea, not the whole bar */
+.attach-chips {
+  position: absolute;
+  /* left is set via JS to the textarea’s left edge */
+  left: 0;
+  bottom: calc(100% + 8px);
+  /* width is constrained to the textarea’s width via JS */
+  width: auto;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  z-index: 50;
+}
+
+/* chip look */
+.attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.dark .attach-chip {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.08);
+}
+.attach-chip .ac-icon { font-size: 14px; }
+.attach-chip .ac-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Chip remove-X on hover */
+/* Centered remove-X outside the icon */
+.attach-chip { position: relative; }
+
+.ac-ico-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;   /* ensures a stable anchor for centering */
+  height: 18px;
+}
+
+.ac-x {
+  position: absolute;
+  top: -10px;                 /* outside above the icon */
+  left: 50%;                  /* horizontally centered over the icon */
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #ffb3b3;  /* light red border */
+  background: #ffecec;        /* very light red fill */
+  color: #b40000;             /* subtle red glyph */
+  display: none;              /* only on hover/focus */
+  cursor: pointer;
+  line-height: 14px;
+  font-size: 12px;
+  text-align: center;
+  padding: 0;
+  z-index: 1;
+  box-shadow: 0 1px 2px rgba(180,0,0,0.12);
+}
+
+.attach-chip:hover .ac-x,
+.ac-x:focus-visible { display: inline-block; }
+
+/* (optional) dark theme tweak */
+.dark .ac-x {
+  background: #3a1f1f;
+  border-color: #a45a5a;
+  color: #ffd0d0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+
+/* Files row shown on a just-sent user bubble */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 2px 0;
+}
+.msg-attachments .attach-chip {
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.dark .msg-attachments .attach-chip {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.08);
+}
+
+/* --- Bubble attachments (user message) --- */
+.bubble-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ba-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.06);
+  font-size: 12px;
+  max-width: 260px;
+  white-space: nowrap;
+}
+
+.dark .ba-chip {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.08);
+}
+
+.ba-ico { font-size: 14px; }
+.ba-name {
+  overflow: hidden; text-overflow: ellipsis; max-width: 180px;
+}
+
+.ba-dl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px; height: 18px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #fff;
+  font-size: 12px;
+  text-decoration: none;
+}
+.ba-dl:hover { background: rgba(0,0,0,0.05); }
+.dark .ba-dl { background: #1f1f1f; border-color: rgba(255,255,255,0.18); }
+
+/* ==== V6: Left rail tweaks (compact + folder icon + ghost actions) ==== */
+
+/* Narrower rail (ChatGPT-like) */
+@media (min-width:901px){
+  .shell{ grid-template-columns: clamp(200px, 20vw, 260px) minmax(0,1fr); }
+}
+
+/* Compact sidebar type/spacing */
+.sidebar { font-size: 13px; }
+.spaces-section .sidebar-title,
+.chats-section  .sidebar-title { font-size: 12.5px; opacity: .8; }
+.space-row, #chat-list .chat-item { padding: 6px 8px; }
+.chat-name, .space-row .space-name { font-size: 13px; }
+
+/* Belt-and-suspenders: no bullets anywhere */
+.spaces-section ul, .spaces-list, .spaces-list li,
+.chats-section  ul, #chat-list               {
+  list-style: none !important; margin: 0; padding: 0;
+}
+
+/* Folder icon before the space name */
+.spaces-section .space-row .space-name::before{
+  content: "📁";
+  margin-right: 6px;
+  opacity: .85;
+}
+
+/* Rail quick actions (New chat / Clear all) – ghost, borderless */
+.rail-quick { display: flex; gap: 6px; margin: 6px 0 8px; }
+#new-chat.btn, #clear-all.btn{
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+#new-chat.btn:hover, #clear-all.btn:hover{ background: var(--rail-hover); }
+
+/* ===== V6: Left rail polish ===== */
+
+/* 1) Compact left rail (ChatGPT-ish) */
+@media (min-width:901px){
+  .shell{ grid-template-columns: clamp(200px, 20vw, 260px) minmax(0,1fr); }
+}
+.sidebar { font-size: 13px; }
+.spaces-section .sidebar-title,
+.chats-section  .sidebar-title { font-size: 12.5px; opacity: .8; }
+
+/* 2) Tighten rows a bit */
+.space-row, #chat-list .chat-item { padding: 6px 8px; }
+.chat-name, .space-row .space-name { font-size: 13px; }
+
+/* 3) Kill any list bullets just in case */
+.spaces-section ul, .spaces-list, .spaces-list li,
+.chats-section  ul, #chat-list {
+  list-style: none !important; margin: 0; padding: 0;
+}
+
+/* 4) Spaces: hide the caret “bullet” visually but keep it clickable */
+.spaces-section .space-row .caret{
+  width: 12px;
+  opacity: 0;                /* invisible, still clickable to toggle */
+}
+
+/* 5) Spaces: folder icon like your ref screenshot (closed vs open) */
+.spaces-section .space-row .space-name{
+  position: relative;
+  padding-left: 20px;        /* room for the icon */
+}
+.spaces-section .space-item.collapsed .space-name::before{
+  content: "📁";             /* closed folder */
+  position: absolute; left: 0; top: 0; opacity: .9;
+}
+.spaces-section .space-item:not(.collapsed) .space-name::before{
+  content: "📂";             /* open folder */
+  position: absolute; left: 0; top: 0; opacity: .9;
+}
+
+/* 6) “New chat / Clear all” under Chats header — ghost buttons */
+.chats-actions { 
+  display: flex; gap: 8px; 
+  margin: 4px 0 6px; 
+}
+.chats-actions .btn{
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.chats-actions .btn:hover{ background: var(--rail-hover); }
+
+/* ===== V6: Spaces — left alignment + clickable folder icon ===== */
+
+/* Remove previous pseudo-icon + left padding if any */
+.spaces-section .space-row .space-name {
+  padding-left: 0 !important;
+}
+.spaces-section .space-row .space-name::before {
+  content: none !important;
+}
+
+/* Space row is already a flex line; ensure tight gap like chats */
+.spaces-section .space-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;                 /* same feel as chat rows */
+  padding-left: 0;          /* keep flush with rail edge */
+}
+
+/* Real folder icon element (first child) */
+.spaces-section .space-row .folder-ico {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  flex: 0 0 16px;
+  margin-right: 2px;
+}
+
+/* Closed vs open glyph (matches your ref screenshots) */
+.spaces-section .space-item.collapsed .folder-ico::before  { content: "📁"; }
+.spaces-section .space-item:not(.collapsed) .folder-ico::before { content: "📂"; }
+
+/* Make sure there is NO hidden caret affecting clicks */
+.spaces-section .space-row .caret { display: none !important; }
+
+/* Name typography matches chat rows */
+.spaces-section .space-row .space-name {
+  font-size: 13px;          /* same as .chat-name */
+}
+
+/* === V6: tighten vertical spacing for Spaces rows === */
+.spaces-section .spaces-list { gap: 2px !important; }
+
+.spaces-section .space-item { margin: 0 !important; }
+
+.spaces-section .space-row {
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  line-height: 1.15;           /* tighter text block */
+}
+
+.spaces-section .space-row .space-name {
+  margin: 0 !important;        /* remove any top/bottom margin */
+  padding: 0 !important;       /* keep flush (we removed left pad earlier) */
+}
+
+.spaces-section .space-row .folder-ico {
+  width: 16px; height: 16px;   /* keep icon small so row stays compact */
+}
+
+/* nested list sits close to the row when expanded */
+.spaces-section .space-chats {
+  margin: 2px 0 0 18px !important;
+}
+
+/* collapsed state keeps a tiny gap only */
+.spaces-section .space-item.collapsed {
+  margin-bottom: 2px !important;
+}
+
+/* V6 override: make AI bubbles narrower on desktop/tablet */
+.msg-ai .bubble{
+  /* pick what you like: */
+  /* max-width: 68ch;               /* character-based cap (ChatGPT-like) */
+  max-width: clamp(40ch, 52vw, 150ch); /* responsive cap */
+}
+
+/* If you also want narrower bubbles on phones, override the mobile rule: */
+@media (max-width:640px){
+  .msg-ai .bubble{
+    width: auto;        /* cancel the 100% width */
+    max-width: 92%;     /* or a ch-based cap: e.g., 60ch */
+  }
+}
+
+/* === V6: Attachments Vault (right panel) === */
+.chat-column { position: relative; }
+
+
+.vault-panel{
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  bottom: 96px;
+  /* grow/shrink to the widest filename; clamp so it never eats the chat */
+  width: max-content;
+  max-width: clamp(220px, 30vw, 520px);
+  overflow: auto;
+  padding: 8px;
+  border-left: 1px solid rgba(0,0,0,.06);
+  background: transparent;
+  z-index: 5;
+}
+
+
+.vault-head{
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; opacity: .8; margin-bottom: 6px;
+}
+.vault-title{ font-weight: 600; }
+.vault-list{ display: flex; flex-direction: column; gap: 4px; }
+.v-empty{ font-size: 12px; opacity: .6; padding: 6px; }
+
+.v-item{
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px; border-radius: 8px;
+  background: rgba(0,0,0,.03);
+}
+.v-name{
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px;
+}
+.v-size{ font-size: 11px; opacity: .7; }
+.v-x{
+  border: 0; background: transparent; cursor: pointer;
+  padding: 0 4px; border-radius: 6px; line-height: 1;
+}
+.v-x:hover{ background: rgba(0,0,0,.06); }
+
+/* ===== GAIA V7 — ChatGPT-like code blocks + token colors ===== */
+:root {
+  --code-bg:        #0b1220;   /* deep navy (dark block even in light theme, like ChatGPT) */
+  --code-fg:        #e7ecff;
+  --code-border:    #1a2444;
+  --code-shadow:    0 8px 24px rgba(6, 12, 30, .35);
+
+  /* token palette */
+  --tok-kw:   #c792ea;  /* purple */
+  --tok-str:  #ecc48d;  /* sand */
+  --tok-num:  #f78c6c;  /* orange */
+  --tok-com:  #5c6773;  /* slate */
+  --tok-op:   #89ddff;  /* cyan */
+  --tok-tag:  #7fdbca;  /* teal */
+  --tok-attr: #addb67;  /* green */
+  --tok-fn:   #82aaff;  /* blue */
+}
+
+/* dark tweaks */
+[data-theme="dark"] {
+  --code-bg:     #0e1628;
+  --code-fg:     #e9eeff;
+  --code-border: #223056;
+  --code-shadow: 0 10px 28px rgba(0,0,0,.55);
+}
+
+/* unified code block look (both themes) */
+.bubble pre {
+  background: var(--code-bg) !important;
+  color: var(--code-fg) !important;
+  border: 1px solid var(--code-border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--code-shadow) !important;
+  padding: 14px 16px !important;
+  overflow: auto !important;
+}
+
+/* code font & spacing */
+.bubble pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace !important;
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+  white-space: pre !important;
+}
+
+/* token colors */
+.tok-kw   { color: var(--tok-kw);   }
+.tok-str  { color: var(--tok-str);  }
+.tok-num  { color: var(--tok-num);  }
+.tok-com  { color: var(--tok-com);  font-style: italic; }
+.tok-op   { color: var(--tok-op);   }
+.tok-tag  { color: var(--tok-tag);  }
+.tok-attr { color: var(--tok-attr); }
+.tok-fn   { color: var(--tok-fn);   }
+
+/* keep your copy button visible on hover */
+.bubble pre .copy-code-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.18);
+  color: #fff;
+}
+[data-theme="light"] .bubble pre .copy-code-btn {
+  background: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.28);
+  color: #fff;
+}
+/* === GAIA V7: code window look (like your image #2) === */
+
+/* No pills/underline inside code windows */
+.bubble pre code,
+.bubble pre code * {
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+}
+
+/* Inline code elsewhere keeps a subtle pill */
+.bubble :not(pre) > code {
+  background: rgba(0,0,0,.06);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+/* Dark window + readable text */
+.bubble pre {
+  background: #0b1220 !important;
+  color: #e9eeff !important;
+  border: 1px solid #223056 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,.55) !important;
+  padding: 14px 16px !important;
+  overflow: auto !important;
+}
+
+/* Monospace + spacing */
+.bubble pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace !important;
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+  white-space: pre !important;       /* keep real newlines */
+  word-break: normal !important;
+}
+/* High-contrast syntax tokens */
+.bubble pre code .tok-kw   { color: #b095ff; }  /* keywords   */
+.bubble pre code .tok-str  { color: #ffd891; }  /* strings    */
+.bubble pre code .tok-num  { color: #ffad80; }  /* numbers    */
+.bubble pre code .tok-com  { color: #8aa0b4; font-style: italic; } /* comments */
+.bubble pre code .tok-tag  { color: #86ead4; }  /* html tags  */
+.bubble pre code .tok-attr { color: #b8f487; }  /* attributes */
+.bubble pre code .tok-fn   { color: #97b3ff; }  /* functions  */
+.bubble pre code .tok-op   { color: #8fe6ff; }  /* operators  */
+
+
+/* GAIA V7 — compact spacing like ChatGPT */
+.msg.msg-ai .bubble > *:first-child { margin-top: 0 !important; }
+.msg.msg-ai .bubble > *:last-child  { margin-bottom: 0 !important; }
+
+.bubble p         { margin: .35rem 0 !important; }
+.bubble ul, .bubble ol { margin: .3rem 0 .5rem !important; }
+.bubble li        { margin: .15rem 0 !important; }
+.bubble pre       { margin: .45rem 0 .65rem !important; }
+
+/* keep inline code pills, but not inside code windows */
+.bubble :not(pre) > code { padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.06); }
+.bubble pre code, .bubble pre code * { background: transparent !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; }
+
+/* never style tokens inside code windows */
+.bubble pre code, .bubble pre code * {
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+}
+
+/* keep tiny pills only for inline code in normal text */
+.bubble :not(pre) > code {
+  background: rgba(0,0,0,.06);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.msg .msg-clip {
+  margin-left: .5rem;
+  opacity: .85;
+  font-size: .95em;
+  vertical-align: text-bottom;
+}
+.msg .msg-clip:hover { opacity: 1; }
+
+/* === GAIA: user bubble meta left, actions right (hover stays same) === */
+.msg.user .bubble-foot{
+  display:flex;                /* put meta + actions on one row */
+  align-items:center;
+  justify-content:space-between;
+  gap:.5rem;
+}
+.msg.user .bubble-foot .msg-meta{
+  margin-right:auto;
+  text-align:left;
+  width:auto;                  /* override any 100%/center styles */
+  flex:0 1 auto;
+}
+.msg.user .bubble-foot .msg-actions{
+  margin-left:auto;            /* pins actions to the extreme right */
+  flex:0 0 auto;
+}
+
+/* === GAIA – Composer file chips opaque (do not blend with background text) === */
+.composer .file-chip,
+#composer .file-chip,
+.composer .attach-chip,
+#composer .attach-chip,
+.composer .attachment-chip,
+#composer .attachment-chip {
+  background: var(--surface, #fff);
+  opacity: 1;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  backdrop-filter: none !important;
+  position: relative;
+  z-index: 2;                 /* keeps chips above scrolling content behind */
+}
+
+.composer .file-chip .name,
+#composer .file-chip .name,
+.composer .attach-chip .name,
+#composer .attach-chip .name,
+.composer .attachment-chip .name,
+#composer .attachment-chip .name {
+  color: var(--text, #111);
+}
+
+/* Typing placeholder should behave like a normal AI bubble (left side) */
+.msg.msg-ai.typing { align-self: flex-start; justify-content: flex-start; }
+.msg.msg-ai.typing .bubble { min-width: auto; }
+
+/* ---- Layout constants ---- */
+:root{
+  --toolbar-h: 56px;       /* height of the top bar (adjust if yours differs) */
+  --vault-w: 320px;        /* width of the Files panel */
+}
+
+/* Prevent overlap: reserve space for the Files panel on wide screens */
+@media (min-width: 1100px){
+  /* Make the vault stick to the right and scroll within the viewport */
+  #attachment-vault{
+    position: fixed;
+    right: 0;
+    top: var(--toolbar-h);
+    width: var(--vault-w);
+    height: calc(100vh - var(--toolbar-h));
+    overflow: auto;
+    background: var(--surface, #fff);
+    border-left: 1px solid var(--border, rgba(0,0,0,.08));
+    z-index: 10;
+  }
+
+  /* Reserve horizontal space so chat isn’t covered */
+  /* Change this selector to your main chat scroller/container if needed */
+  .chat-scroll, .chat-area, .main-column{
+    margin-right: var(--vault-w);
+  }
+}
+
+/* On smaller screens, make the Files panel a slide-over so it never hides content */
+@media (max-width: 1099px){
+  #attachment-vault{
+    position: fixed;
+    right: 0;
+    top: var(--toolbar-h);
+    width: min(88vw, var(--vault-w));
+    height: calc(100vh - var(--toolbar-h));
+    overflow: auto;
+    background: var(--surface, #fff);
+    border-left: 1px solid var(--border, rgba(0,0,0,.08));
+    z-index: 30;
+    transform: translateX(100%);     /* hidden by default */
+    transition: transform .18s ease;
+    box-shadow: -8px 0 20px rgba(0,0,0,.12);
+  }
+
+  /* When you want it visible on mobile, toggle .is-open via your existing UI button (optional) */
+  #attachment-vault.is-open{
+    transform: translateX(0);
+  }
+
+  /* No extra margin on the chat for small screens */
+  .chat-scroll, .chat-area, .main-column{
+    margin-right: 0;
+  }
+}
+
+

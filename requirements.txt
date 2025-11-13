@@ -1,0 +1,14 @@
+flask
+python-dotenv
+groq
+playwright
+PyPDF2
+python-docx
+python-pptx
+duckdb
+pandas
+openpyxl
+anthropic
+cohere
+openai
+google-generativeai

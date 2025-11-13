@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GAIA — Chat</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- soft background -->
+  <div class="bg-waves"></div>
+
+  <div class="shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="orb"></div>
+        <div>
+          <div class="brand-title">GAIA</div>
+          <div class="brand-sub">CONVERSATIONAL AI</div>
+        </div>
+      </div>
+
+      <div class="side-actions">
+        <button id="new-chat" class="btn">+ New chat</button>
+        <button id="clear-all" class="btn ghost">Clear all</button>
+      </div>
+
+      <div id="chat-list" class="chat-list"></div>
+    </aside>
+
+    <!-- Main column -->
+    <main class="main">
+      <!-- Top bar -->
+      <header class="topbar">
+        <div class="status" id="status">Ready</div>
+        <div class="topbar-spacer"></div>
+        <button id="theme-toggle" class="icon-btn" title="Toggle theme" aria-label="Toggle theme">
+          <span id="theme-icon" aria-hidden="true">🌙</span>
+        </button>
+      </header>
+
+      <!-- Chat stream (messages + composer merged) -->
+      <section class="chat-column">
+        <div id="messages" class="messages"></div>
+
+        <!-- Composer (merged at bottom of the scroll column) -->
+        <footer class="composer">
+          <div class="composer-inner" id="chatbar">
+            <select id="model" class="model-select" aria-label="Model">
+              <option value="grok" selected>grok (Groq)</option>
+              <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+              <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+            </select>
+
+            <button id="more" class="more" title="More">+</button>
+            <!-- Hidden input for file picking (stays invisible) -->
+            <input id="file-input" type="file" multiple hidden>
+
+            <!-- Plus-menu popover (hidden by default; appears when + is clicked) -->
+            <div id="plus-menu" class="plus-menu" hidden>
+              <button class="plus-item" id="plus-upload">
+                <span class="pi-emoji">📎</span>
+                <span class="pi-text">Upload files / images</span>
+              </button>
+              <button class="plus-item" id="plus-coming" disabled title="Coming soon">
+                <span class="pi-emoji">✨</span>
+                <span class="pi-text">Coming soon</span>
+              </button>
+            </div>
+            <div id="attach-chips" class="attach-chips" hidden></div>
+
+
+            <textarea id="input" rows="1" placeholder="Ask anything…"></textarea>
+            <button id="send" class="send" title="Send" aria-label="Send">➤</button>
+          </div>
+
+          <div class="hint">Only <b>grok</b> and <b>gemini</b> are active. Others are placeholders.</div>
+        </footer>
+      </section>
+    </main>
+  </div>
+  <!-- GAIA modal root (centered, themed) -->
+  <div id="gaia-modal" class="gaia-modal-backdrop" role="dialog" aria-modal="true">
+  <div class="gaia-modal-panel" role="document">
+    <button class="gaia-modal-close" data-close aria-label="Close">✕</button>
+    <div class="gaia-modal-head" id="gaia-modal-title">Title</div>
+    <div class="gaia-modal-body" id="gaia-modal-body"></div>
+    <div class="gaia-modal-foot">
+      <button class="btn cancel" data-close>Cancel</button>
+      <button class="btn ok" id="gaia-modal-ok">OK</button>
+    </div>
+  </div>
+  </div>
+
+  
+  
+  <script src="/static/scripts/spaces.js" defer></script>
+  <script type="module">
+  import { hydrateModelSelect } from "/static/scripts/models.js";
+  const sel = document.querySelector("#model"); /* your existing select */
+  hydrateModelSelect(sel);
+  </script>
+  <script src="/static/scripts/attachment_vault.js" defer></script>
+  <script src="/static/scripts/markdown_plus.js" defer></script>
+  <script src="/static/scripts/stream_renderer.js" defer></script>
+  <script src="/static/scripts/exporter.js" defer></script>
+  <script src="/static/scripts/syntax_highlight.js" defer></script>
+  <script src="/static/scripts/memory.js"></script>
+  <script src="/static/scripts/aimemory.js" defer></script>
+  <script src="/static/scripts/elm.js" defer></script>
+  <script src="/static/scripts/codeflow.js" defer></script> <!-- next section -->
+  <script src="/static/scripts/filemem.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
