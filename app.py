@@ -8,6 +8,9 @@ from flask import jsonify
 from flask import Response, stream_with_context, request
 import json, time
 
+import config
+app.secret_key = config.SECRET_KEY
+
 def safe_json(obj, status=200):
     return jsonify(obj), status
 
