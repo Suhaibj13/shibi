@@ -1987,4 +1987,9 @@ body {
   }
 }
 
-
+/* === Mobile fix: hide desktop-style vault panel === */
+@media (max-width: 900px) {
+  .vault-panel {
+    display: none;
+  }
+}
