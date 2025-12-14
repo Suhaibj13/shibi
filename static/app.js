@@ -1669,3 +1669,44 @@ messagesEl?.addEventListener("click", (e) => {
   }
   setComposerHeight();
 })();
+
+// === GAIA mobile: open/close left nav + file vault ===
+document.addEventListener('DOMContentLoaded', () => {
+  const leftBtn   = document.getElementById('mobile-open-left');
+  const rightBtn  = document.getElementById('mobile-open-right');
+  const sidebar   = document.querySelector('.sidebar');
+  const vault     = document.getElementById('attachment-vault'); // created by attachment_vault.js
+  const overlay   = document.getElementById('mobile-overlay');
+
+  // If some elements are missing (e.g. on a non-chat page), just skip
+  if (!leftBtn || !rightBtn || !sidebar || !overlay) return;
+
+  const closeAll = () => {
+    sidebar.classList.remove('mobile-open');
+    overlay.classList.remove('is-visible');
+    if (vault) {
+      vault.classList.remove('is-open');   // matches existing CSS for vault
+    }
+  };
+
+  leftBtn.addEventListener('click', () => {
+    const isOpen = sidebar.classList.contains('mobile-open');
+    closeAll();
+    if (!isOpen) {
+      sidebar.classList.add('mobile-open');
+      overlay.classList.add('is-visible');
+    }
+  });
+
+  rightBtn.addEventListener('click', () => {
+    if (!vault) return;                    // no vault mounted yet
+    const isOpen = vault.classList.contains('is-open');
+    closeAll();
+    if (!isOpen) {
+      vault.classList.add('is-open');      // slide-in vault (CSS already handles this)
+      overlay.classList.add('is-visible');
+    }
+  });
+
+  overlay.addEventListener('click', closeAll);
+});
