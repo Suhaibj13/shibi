@@ -628,6 +628,250 @@
     return assistantIdx;
   }
   
+  // ===== Vault Viewer State =====
+  let __vaultActiveFile = null;
+
+  function openVaultViewer(file) {
+    __vaultActiveFile = file;
+
+    const backdrop = document.getElementById("vaultViewerBackdrop");
+    const nameEl   = document.getElementById("vaultViewerName");
+    const metaEl   = document.getElementById("vaultViewerMeta");
+    const preEl    = document.getElementById("vaultViewerContent");
+    const fbEl     = document.getElementById("vaultViewerFallback");
+
+    nameEl.textContent = file.name || "File";
+    metaEl.textContent = file.sizeLabel ? `(${file.sizeLabel})` : "";
+    preEl.textContent = "";
+    fbEl.hidden = true;
+
+    backdrop.classList.add("is-open");
+    backdrop.setAttribute("aria-hidden", "false");
+
+    // Fetch & show preview (text-like files)
+    loadVaultPreview(file).catch(() => {
+      fbEl.hidden = false;
+    });
+  }
+
+  function closeVaultViewer() {
+    const backdrop = document.getElementById("vaultViewerBackdrop");
+    backdrop.classList.remove("is-open");
+    backdrop.setAttribute("aria-hidden", "true");
+    __vaultActiveFile = null;
+  }
+
+  async function loadVaultPreview(file) {
+    const name = file?.name || file?.file?.name || "file";
+    const ext = name.split(".").pop().toLowerCase();
+    const textLike = ["txt","md","csv","json","js","py","html","css","log","xml","yaml","yml"].includes(ext);
+    if (!textLike) throw new Error("Non-text");
+
+    // Prefer in-memory blobs/files first
+    if (file instanceof File) {
+      document.getElementById("vaultViewerContent").textContent = await file.text();
+      return;
+    }
+    if (file?.file instanceof File) {
+      document.getElementById("vaultViewerContent").textContent = await file.file.text();
+      return;
+    }
+    if (file?.data instanceof Blob) {
+      document.getElementById("vaultViewerContent").textContent = await file.data.text();
+      return;
+    }
+
+    // Fallback to URL fetch
+    const url = file?.viewUrl || file?.downloadUrl;
+    if (!url) throw new Error("No preview source");
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Fetch failed");
+    document.getElementById("vaultViewerContent").textContent = await res.text();
+  }
+
+  function downloadVaultFile(file) {
+    const name = file?.name || file?.file?.name || "download";
+    let blob = null;
+
+    if (file instanceof File) blob = file;
+    else if (file?.file instanceof File) blob = file.file;
+    else if (file?.data instanceof Blob) blob = file.data;
+
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      return;
+    }
+
+    const url = file?.downloadUrl || file?.viewUrl;
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+
+  function attachVaultFile(file) {
+    // ✅ Tie into your existing "selected attachment" mechanism.
+    // Replace this with your real function/variable.
+    // Example: setActiveAttachment(file);
+    // Convert vault record -> File (so it behaves like normal upload)
+    let f = null;
+
+    if (file instanceof File) f = file;
+    else if (file?.file instanceof File) f = file.file;
+    else if (file?.data instanceof Blob) {
+      f = new File([file.data], file.name || "file", { type: file.type || "application/octet-stream" });
+    }
+
+    if (!f) return;
+    tryAddFiles([f]); // ✅ uses your limits + calls updateChips()
+  }
+
+  window.VaultViewer = {
+    open: openVaultViewer,
+    close: closeVaultViewer,
+    download: downloadVaultFile,
+    attach: attachVaultFile
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const backdrop = document.getElementById("vaultViewerBackdrop");
+    if (!backdrop) return;
+
+    const btnClose = document.getElementById("vaultViewerClose");
+    const btnDl    = document.getElementById("vaultViewerDownload");
+    const btnAtt   = document.getElementById("vaultViewerAttach");
+
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop) closeVaultViewer();
+    });
+
+    btnClose?.addEventListener("click", closeVaultViewer);
+
+    btnDl?.addEventListener("click", () => {
+      if (__vaultActiveFile) downloadVaultFile(__vaultActiveFile);
+    });
+
+    btnAtt?.addEventListener("click", () => {
+      if (__vaultActiveFile) attachVaultFile(__vaultActiveFile);
+      closeVaultViewer();
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeVaultViewer();
+    });
+  });
+
+  document.addEventListener("DOMContentLoaded", () => {
+    // Keep vault restore (vault toggle is handled in attachment vault file)
+    if (localStorage.getItem("vaultCollapsed") === "1") {
+      document.body.classList.add("vault-collapsed");
+    }
+  });
+
+  // ==============================
+// Vault mini rail (collapsed icons)
+// ==============================
+function ensureVaultMiniRail() {
+  // Try common vault panel selectors (keep flexible)
+  const panel =
+    document.getElementById("vault-panel") ||
+    document.querySelector(".vault-panel") ||
+    document.querySelector("#attachment-vault") ||
+    document.querySelector(".attachment-vault");
+
+  if (!panel) return null;
+
+  let rail = panel.querySelector(".vault-mini-rail");
+  if (!rail) {
+    rail = document.createElement("div");
+    rail.className = "vault-mini-rail";
+    // Put it near the top so it behaves like a sidebar mini rail
+    panel.prepend(rail);
+  }
+  return rail;
+}
+
+function getVaultItemName(item, idx) {
+  return (
+    item.getAttribute("data-name") ||
+    item?.dataset?.name ||
+    item.querySelector(".vault-name")?.textContent?.trim() ||
+    item.querySelector(".file-name")?.textContent?.trim() ||
+    `File ${idx + 1}`
+  );
+}
+
+function syncVaultMiniRail() {
+    const rail = ensureVaultMiniRail();
+    if (!rail) return;
+
+    const items = Array.from(document.querySelectorAll("#vault-list .vault-item"));
+    rail.innerHTML = "";
+
+    items.forEach((item, idx) => {
+      const name = getVaultItemName(item, idx);
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "vault-mini-btn";
+      btn.title = name;                 // <-- hover shows file name (browser tooltip)
+      btn.setAttribute("aria-label", name);
+
+      // Try to clone an existing icon from the row
+      const icon =
+        item.querySelector("img, svg, .vault-file-icon, .file-icon, .vault-icon");
+
+      if (icon) {
+        btn.appendChild(icon.cloneNode(true));
+      } else {
+        const fallback = document.createElement("span");
+        fallback.className = "vault-mini-fallback";
+        fallback.textContent = "📄";
+        btn.appendChild(fallback);
+      }
+
+      // Click icon = behave like clicking the real vault row (opens viewer etc.)
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+
+      rail.appendChild(btn);
+    });
+  }
+
+  // Init + keep in sync
+  (function initVaultMiniRail() {
+    const vaultListEl = document.getElementById("vault-list");
+    if (vaultListEl) {
+      new MutationObserver(() => syncVaultMiniRail()).observe(vaultListEl, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    // Also resync when body class changes (vault collapsed/open)
+    new MutationObserver(() => syncVaultMiniRail()).observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    syncVaultMiniRail();
+  })();
+
 
   // Replace placeholder text, then persist to history and re-render
   function hostUpdateAssistantBubble(idx, text, opts = {}) {
@@ -1710,3 +1954,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
   overlay.addEventListener('click', closeAll);
 });
+
+// === Desktop: ChatGPT-style collapse/expand LEFT sidebar ===
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('toggle-left-nav');
+  if (!btn) return;
+
+  const KEY = 'leftNavCollapsed';
+  const OLD_KEY = 'leftCollapsed'; // legacy key
+
+  const apply = (collapsed) => {
+    document.body.classList.remove('left-collapsed'); // kill legacy class
+    document.body.classList.toggle('sidebar-collapsed', collapsed);
+    document.body.classList.toggle('left-mini', collapsed);   // ✅ ADD THIS EXACT LINE
+    btn.textContent = collapsed ? '⮞' : '⮜';
+    btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    localStorage.setItem(KEY, collapsed ? '1' : '0');
+  };
+
+  // restore (supports older saved state)
+  const saved = (localStorage.getItem(KEY) ?? localStorage.getItem(OLD_KEY)) === '1';
+  apply(saved);
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    apply(!document.body.classList.contains('sidebar-collapsed'));
+  });
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const sidebar = document.querySelector(".sidebar");
+  if (!sidebar) return;
+
+  // Create mini rail once
+  if (!sidebar.querySelector(".mini-rail")) {
+    const rail = document.createElement("div");
+    rail.className = "mini-rail";
+    rail.innerHTML = `
+      <button class="rail-btn" title="Create new space" data-rail="space">📁</button>
+      <button class="rail-btn" title="New chat" data-rail="chat">✎</button>
+      <button class="rail-btn" title="Search" data-rail="search">🔍</button>
+    `;
+    sidebar.insertBefore(rail, sidebar.children[1]);
+  }
+
+  const rail = sidebar.querySelector(".mini-rail");
+
+  rail.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-rail]");
+    if (!btn) return;
+
+    const type = btn.dataset.rail;
+
+    if (type === "chat") {
+      document.getElementById("new-chat")?.click();
+    }
+
+    if (type === "space") {
+      // click existing "+ New space" if spaces.js renders it
+      const candidates = [...document.querySelectorAll("button, a")]
+        .filter(el => (el.textContent || "").toLowerCase().includes("new space"));
+      candidates[0]?.click();
+    }
+
+    if (type === "search") {
+      alert("Search coming next — tell me if you want chat list filtering or full modal search.");
+    }
+  });
+});
+
