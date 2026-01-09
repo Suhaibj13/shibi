@@ -73,13 +73,48 @@
       panel.id = "vault-panel";
       panel.className = "vault-panel";
       panel.innerHTML = `
+        <!-- collapse / expand vault (ChatGPT-style) -->
+        <button id="toggle-vault"
+                class="nav-toggle-btn right"
+                type="button"
+                aria-label="Collapse vault"
+                title="Collapse vault">⮞</button>
+
         <div class="vault-head">
           <span class="vault-title">Files</span>
           <span class="vault-count" id="vault-count">0</span>
         </div>
         <div class="vault-list" id="vault-list"></div>
+        <div class="vault-mini" id="vault-mini" aria-label="Files (collapsed)"></div>
       `;
       col.appendChild(panel);
+      // restore collapsed state (if saved)
+      if (localStorage.getItem("vaultCollapsed") === "1") {
+        document.body.classList.add("vault-collapsed");
+      }
+
+      const tBtn = panel.querySelector("#toggle-vault");
+      if (tBtn && !panel._toggleBound) {
+        // set correct icon on load
+        tBtn.textContent = document.body.classList.contains("vault-collapsed") ? "⮜" : "⮞";
+        tBtn.title = document.body.classList.contains("vault-collapsed") ? "Expand vault" : "Collapse vault";
+        tBtn.setAttribute("aria-label", tBtn.title);
+
+        tBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          document.body.classList.toggle("vault-collapsed");
+          const collapsed = document.body.classList.contains("vault-collapsed");
+
+          tBtn.textContent = collapsed ? "⮜" : "⮞";
+          tBtn.title = collapsed ? "Expand vault" : "Collapse vault";
+          tBtn.setAttribute("aria-label", tBtn.title);
+          localStorage.setItem("vaultCollapsed", collapsed ? "1" : "0");
+        });
+
+        panel._toggleBound = true;
+      }
       measureAndSetWidth(); // initial width
       window.addEventListener("resize", measureAndSetWidth);
     }
@@ -211,34 +246,101 @@
                             .sort((a,b) => b.savedAt - a.savedAt);
 
     countEl.textContent = String(rows.length);
+    // Build a map so click handlers can get the full record by sha
+    listEl._vaultChatId = String(chatId);
+    listEl._vaultRowsBySha = Object.fromEntries(rows.map(r => [r.sha, r]));
+
+    countEl.textContent = String(rows.length);
+
     listEl.innerHTML = rows.map(r => `
-    <div class="v-item" data-sha="${r.sha}" title="${esc(r.name)}">
+      <div class="v-item" data-sha="${r.sha}" title="${esc(r.name)}">
         <span class="v-ico">${iconForFile(r.name, r.type)}</span>
-        <a class="v-name" href="${URL.createObjectURL(r.data)}" download="${esc(r.name)}">${esc(r.name)}</a>
+
+        <!-- IMPORTANT: button instead of <a> so click DOES NOT download -->
+        <button class="v-name v-open" type="button">${esc(r.name)}</button>
+
         <span class="v-size">${fmtKB(Math.round((r.size || 0)/1024))}</span>
-        <button class="v-x" aria-label="Remove" title="Remove">✕</button>
-    </div>
+
+        <!-- Actions order: Attach, Download, Delete -->
+        <div class="v-actions">
+          <button class="v-btn v-attach" type="button" title="Attach" aria-label="Attach">📎</button>
+          <button class="v-btn v-dl" type="button" title="Download" aria-label="Download">⬇️</button>
+          <button class="v-btn v-del" type="button" title="Delete" aria-label="Delete">✕</button>
+        </div>
+      </div>
     `).join(rows.length ? "" : `<div class="vault-empty">No files</div>`);
+
+    // Mini rail (shown when vault is collapsed)
+    const miniEl = panel.querySelector("#vault-mini");
+    if (miniEl) {
+      miniEl.innerHTML = rows.map(r => `
+        <button class="v-mini" type="button" data-sha="${r.sha}" title="${esc(r.name)}" aria-label="${esc(r.name)}">${iconForFile(r.name, r.type)}</button>
+      `).join("");
+
+      if (!miniEl._vaultBound) {
+        miniEl.addEventListener("click", (e) => {
+          const b = e.target.closest(".v-mini");
+          if (!b) return;
+          const sha = b.dataset.sha;
+          const rec = (listEl._vaultRowsBySha || {})[sha];
+          if (!rec) return;
+          window.VaultViewer?.open(rec);
+        });
+        miniEl._vaultBound = true;
+      }
+    }
+
     // delegate once
     if (!listEl._vaultBound) {
-        listEl.addEventListener("click", async (e) => {
-            const x = e.target.closest(".v-x");
-            if (!x) return;
-            const row = x.closest(".v-item");
-            const sha = row?.dataset.sha;
-            if (!sha) return;
-            try {
-            await remove(String(chatId), sha);
-            row.remove();
-            countEl.textContent = String(listEl.querySelectorAll(".v-item").length);
-            } catch (err) {
-            console.warn("Delete failed:", err);
-            }
-        });
-        listEl._vaultBound = true;
+      listEl.addEventListener("click", async (e) => {
+        const rowEl = e.target.closest(".v-item");
+        if (!rowEl) return;
+
+        const sha = rowEl.dataset.sha;
+        const activeChatId = listEl._vaultChatId;
+        const rec = (listEl._vaultRowsBySha || {})[sha];
+        if (!sha || !rec) return;
+
+        // 1) Attach
+        if (e.target.closest(".v-attach")) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.VaultViewer?.attach(rec);
+          return;
         }
 
+        // 2) Download
+        if (e.target.closest(".v-dl")) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.VaultViewer?.download(rec);
+          return;
+        }
+
+        // 3) Delete
+        if (e.target.closest(".v-del")) {
+          e.preventDefault();
+          e.stopPropagation();
+          try {
+            await remove(String(activeChatId), sha);
+            delete listEl._vaultRowsBySha[sha];
+            rowEl.remove();
+            countEl.textContent = String(listEl.querySelectorAll(".v-item").length);
+          } catch (err) {
+            console.warn("Delete failed:", err);
+          }
+          return;
+        }
+
+        // 4) Default: clicking file name / row opens viewer
+        window.VaultViewer?.open(rec);
+      });
+
+      listEl._vaultBound = true;
     }
+
+
+  }
 
 
   // Accept Array<File>, FileList, or [{file: File}, …]
