@@ -774,13 +774,27 @@
   });
 
   document.addEventListener("DOMContentLoaded", () => {
-    // Keep vault restore (vault toggle is handled in attachment vault file)
-    if (localStorage.getItem("vaultCollapsed") === "1") {
-      document.body.classList.add("vault-collapsed");
-    }
+    const mq = window.matchMedia("(max-width: 900px)");
+
+    const applyVaultRestore = () => {
+      if (mq.matches) {
+        document.body.classList.remove("vault-collapsed");
+        return;
+      }
+      if (localStorage.getItem("vaultCollapsed") === "1") {
+        document.body.classList.add("vault-collapsed");
+      } else {
+        document.body.classList.remove("vault-collapsed");
+      }
+    };
+
+    applyVaultRestore();
+
+    try { mq.addEventListener("change", applyVaultRestore); }
+    catch { mq.addListener(applyVaultRestore); }
   });
 
-  // ==============================
+// ==============================
 // Vault mini rail (collapsed icons)
 // ==============================
 function ensureVaultMiniRail() {
@@ -1955,33 +1969,48 @@ document.addEventListener('DOMContentLoaded', () => {
   overlay.addEventListener('click', closeAll);
 });
 
-// === Desktop: ChatGPT-style collapse/expand LEFT sidebar ===
+// === Desktop: ChatGPT-style collapse/expand LEFT sidebar (DISABLED on mobile) ===
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('toggle-left-nav');
   if (!btn) return;
 
   const KEY = 'leftNavCollapsed';
   const OLD_KEY = 'leftCollapsed'; // legacy key
+  const mq = window.matchMedia('(max-width: 900px)');
+
+  const readSaved = () => (localStorage.getItem(KEY) ?? localStorage.getItem(OLD_KEY)) === '1';
 
   const apply = (collapsed) => {
+    // MOBILE: never apply desktop mini/peek rail state
+    if (mq.matches) {
+      document.body.classList.remove('left-collapsed', 'sidebar-collapsed', 'left-mini');
+      btn.textContent = '⮜';
+      btn.setAttribute('aria-label', 'Collapse sidebar');
+      btn.title = 'Collapse sidebar';
+      return; // IMPORTANT: do not overwrite saved desktop preference
+    }
+
     document.body.classList.remove('left-collapsed'); // kill legacy class
     document.body.classList.toggle('sidebar-collapsed', collapsed);
-    document.body.classList.toggle('left-mini', collapsed);   // ✅ ADD THIS EXACT LINE
+    document.body.classList.toggle('left-mini', collapsed);
     btn.textContent = collapsed ? '⮞' : '⮜';
     btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
     btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
     localStorage.setItem(KEY, collapsed ? '1' : '0');
   };
 
-  // restore (supports older saved state)
-  const saved = (localStorage.getItem(KEY) ?? localStorage.getItem(OLD_KEY)) === '1';
-  apply(saved);
+  apply(readSaved());
 
   btn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (mq.matches) return; // mobile ignores desktop collapse
     apply(!document.body.classList.contains('sidebar-collapsed'));
   });
+
+  // When crossing breakpoint, re-apply saved desktop state
+  try { mq.addEventListener('change', () => apply(readSaved())); }
+  catch { mq.addListener(() => apply(readSaved())); }
 });
 
 document.addEventListener("DOMContentLoaded", () => {
