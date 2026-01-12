@@ -2053,4 +2053,100 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+(function setupMobileDrawers(){
+  const mq = window.matchMedia("(max-width: 900px)");
 
+  const backdrop = document.getElementById("drawerBackdrop");
+  if (!backdrop) return;
+
+  // Panel selectors (add/adjust if your ids/classes differ)
+  const leftPanel  = document.querySelector(".left-nav, #leftNav, .sidebar, #sidebar");
+  const rightPanel = document.querySelector(".vault, #vault, .right-panel, #rightPanel, #filesPanel");
+
+  // Toggle button selectors (add your exact selectors here if needed)
+  const leftToggleBtn = document.querySelector(
+    "#leftToggle, #leftToggleBtn, .btn-left-toggle, [data-toggle='left'], .nav-back-btn"
+  );
+
+  const rightToggleBtn = document.querySelector(
+    "#rightToggle, #rightToggleBtn, .btn-right-toggle, [data-toggle='right'], .vault-toggle"
+  );
+
+  // If your "Files(0)" pill is clickable, include it too
+  const filesPill = document.querySelector(
+    ".files-pill, #filesPill, #filesTab, [data-action='files']"
+  );
+
+  function isMobile(){ return mq.matches; }
+
+  function closeDrawers(){
+    document.body.classList.remove("mobile-left-open", "mobile-right-open");
+    backdrop.hidden = true;
+  }
+
+  function openLeft(){
+    // Ensure right is closed
+    document.body.classList.remove("mobile-right-open");
+    // IMPORTANT: avoid “mini/collapsed” mode hiding chats on mobile
+    document.body.classList.remove("left-mini");
+    document.body.classList.add("mobile-left-open");
+    backdrop.hidden = false;
+  }
+
+  function openRight(){
+    document.body.classList.remove("mobile-left-open");
+    document.body.classList.remove("right-mini");
+    document.body.classList.add("mobile-right-open");
+    backdrop.hidden = false;
+  }
+
+  function toggleLeft(){
+    if (!isMobile()) return;
+    if (document.body.classList.contains("mobile-left-open")) closeDrawers();
+    else openLeft();
+  }
+
+  function toggleRight(){
+    if (!isMobile()) return;
+    if (document.body.classList.contains("mobile-right-open")) closeDrawers();
+    else openRight();
+  }
+
+  // Backdrop click = close
+  backdrop.addEventListener("click", closeDrawers);
+
+  // Click outside panels = close (this is what you asked for on Files panel)
+  document.addEventListener("pointerdown", (e) => {
+    if (!isMobile()) return;
+    const anyOpen =
+      document.body.classList.contains("mobile-left-open") ||
+      document.body.classList.contains("mobile-right-open");
+    if (!anyOpen) return;
+
+    const t = e.target;
+
+    // If click inside panels or on toggles/pill, ignore
+    if (leftPanel && leftPanel.contains(t)) return;
+    if (rightPanel && rightPanel.contains(t)) return;
+    if (leftToggleBtn && leftToggleBtn.contains(t)) return;
+    if (rightToggleBtn && rightToggleBtn.contains(t)) return;
+    if (filesPill && filesPill.contains(t)) return;
+
+    closeDrawers();
+  }, { capture: true });
+
+  // Hook toggles
+  if (leftToggleBtn) leftToggleBtn.addEventListener("click", (e) => { e.preventDefault(); toggleLeft(); });
+  if (rightToggleBtn) rightToggleBtn.addEventListener("click", (e) => { e.preventDefault(); toggleRight(); });
+  if (filesPill) filesPill.addEventListener("click", (e) => { e.preventDefault(); toggleRight(); });
+
+  // ESC closes (harmless on mobile but useful on desktop emulation)
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeDrawers();
+  });
+
+  // If screen resized to desktop, close drawers
+  mq.addEventListener?.("change", () => {
+    if (!isMobile()) closeDrawers();
+  });
+})();
