@@ -9,7 +9,7 @@ class ResolvedModel:
     logical: str
     light: bool = False
 
-OPENAI_EXPENSIVE_MODEL = os.getenv("OPENAI_EXPENSIVE_MODEL", "gpt-5-2025-08-06"),
+OPENAI_EXPENSIVE_MODEL = os.getenv("OPENAI_EXPENSIVE_MODEL", "gpt-5-2025-08-06")
 # One logical key per vendor for the picker; legacy keys kept for BC.
 # _REGISTRY = {
 #     # Groq (default best)
