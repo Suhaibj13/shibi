@@ -9,6 +9,8 @@
   const inputEl = $("#input");
   const sendBtn = $("#send");
   const modelSel = $("#model");
+  const versionSel = document.getElementById("model-version");
+  let _mvReqSeq = 0; // guards against out-of-order /models/versions responses
   const statusEl = $("#status");
   const chatListEl = $("#chat-list");
   const newChatBtn = $("#new-chat");
@@ -217,43 +219,46 @@
     plusMenu.style.left = `${left}px`;
   }
 
+  // ---- + menu wiring (run only once) ----
+  if (!document.body.dataset.gaiaPlusWired) {
+  document.body.dataset.gaiaPlusWired = "1";
+    if (moreBtn) {
+      moreBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (plusMenu.hasAttribute("hidden")) {
+          // reveal then position (so offsetWidth is measurable)
+          plusMenu.removeAttribute("hidden");
+          positionPlusMenu(moreBtn);
+        } else {
+          plusMenu.setAttribute("hidden", "");
+        }
+      });
+    }
 
-  if (moreBtn) {
-    moreBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (plusMenu.hasAttribute("hidden")) {
-        // reveal then position (so offsetWidth is measurable)
-        plusMenu.removeAttribute("hidden");
-        positionPlusMenu(moreBtn);
-      } else {
-        plusMenu.setAttribute("hidden", "");
-      }
-    });
-  }
-
-  // Close when clicking outside or resizing/scolling
-  document.addEventListener("click", (e) => {
-    if (!plusMenu || plusMenu.hasAttribute("hidden")) return;
-    const target = e.target;
-    if (target === plusMenu || plusMenu.contains(target) || target === moreBtn) return;
-    plusMenu.setAttribute("hidden", "");
-  });
-  window.addEventListener("resize", () => !plusMenu?.hasAttribute("hidden") && positionPlusMenu(moreBtn));
-  window.addEventListener("scroll", () => !plusMenu?.hasAttribute("hidden") && positionPlusMenu(moreBtn));
-
-  // Menu actions
-  if (plusUploadBtn && fileInput) {
-    plusUploadBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      fileInput.click();           // open system file picker
+    // Close when clicking outside or resizing/scolling
+    document.addEventListener("click", (e) => {
+      if (!plusMenu || plusMenu.hasAttribute("hidden")) return;
+      const target = e.target;
+      if (target === plusMenu || plusMenu.contains(target) || target === moreBtn) return;
       plusMenu.setAttribute("hidden", "");
     });
-  }
-  if (fileInput) {
-  fileInput.addEventListener("change", (e) => {
-    if (plusMenu) plusMenu.setAttribute("hidden", "");
-    tryAddFiles(e.target.files);
-  });
+    window.addEventListener("resize", () => !plusMenu?.hasAttribute("hidden") && positionPlusMenu(moreBtn));
+    window.addEventListener("scroll", () => !plusMenu?.hasAttribute("hidden") && positionPlusMenu(moreBtn));
+
+    // Menu actions
+    if (plusUploadBtn && fileInput) {
+      plusUploadBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        fileInput.click();           // open system file picker
+        plusMenu.setAttribute("hidden", "");
+      });
+    }
+    if (fileInput) {
+    fileInput.addEventListener("change", (e) => {
+      if (plusMenu) plusMenu.setAttribute("hidden", "");
+      tryAddFiles(e.target.files);
+    });
+    }
   }
 
   const composerInner = document.querySelector(".composer-inner"); // for height sync
@@ -436,8 +441,9 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: modelSel?.value || "grok",
-          message: userMsg.content,   // the edited text
-          history: historyForProvider, // context up to (but not including) the anchor
+          model_version: versionSel?.value || "",
+          message: userMsg?.content || "",
+          history: historyForProvider.map(m => ({ role: m.role, content: m.content })),
           chatId: currentId
         }),
         signal: GAIA_ABORT.signal 
@@ -575,12 +581,41 @@
     scrollToEndSafe();
   };
   
-  function scrollToEndSafe() {
+  // Tracks whether user is already near bottom (so we don't yank scroll when user is reading older msgs)
+  let _stickToBottom = true;
+
+  function _isNearBottom(el, threshold = 140) {
+    return (el.scrollHeight - el.scrollTop - el.clientHeight) < threshold;
+  }
+
+  function scrollToEndSafe(force = false) {
     const messages = document.getElementById("messages");
     if (!messages) return;
+
+    if (!force && !_stickToBottom) return;
+
+    // Multi-tick scroll: handles markdown render + code highlighting + layout shifts
     requestAnimationFrame(() => {
       messages.scrollTop = messages.scrollHeight;
+
+      requestAnimationFrame(() => {
+        messages.scrollTop = messages.scrollHeight;
+        setTimeout(() => {
+          messages.scrollTop = messages.scrollHeight;
+        }, 0);
+      });
     });
+  }
+
+  // IMPORTANT: make it callable by stream_renderer.js and other modules
+  window.scrollToEndSafe = scrollToEndSafe;
+
+  // Update stickiness when user scrolls
+  const _messagesEl = document.getElementById("messages");
+  if (_messagesEl) {
+    _messagesEl.addEventListener("scroll", () => {
+      _stickToBottom = _isNearBottom(_messagesEl);
+    }, { passive: true });
   }
 
   function pushUserMessage(chat, text){
@@ -617,6 +652,39 @@
     return editor ? editor.value : (node.innerText || "").trim();
   }
 
+  async function loadModelVersions(force = false) {
+    if (!versionSel) return;
+
+    const reqId = ++_mvReqSeq;
+
+    try {
+      const res = await fetch(`/models/versions${force ? "?force=1" : ""}`, { cache: "no-store" });
+      const json = await res.json();
+
+      // If another request started after this one, ignore this response (prevents duplicates).
+      if (reqId !== _mvReqSeq) return;
+
+      const entry = (json && json.data && json.data[modelSel.value]) ? json.data[modelSel.value] : {};
+      const versions = (entry.versions || []).slice(0, 3); // show only top 3
+
+      // Reset only when we are sure we're writing the latest response.
+      versionSel.innerHTML = '<option value="">latest</option>';
+
+      for (const v of versions) {
+        const opt = document.createElement("option");
+        opt.value = v.id;
+        opt.textContent = (v.label || v.id);
+        versionSel.appendChild(opt);
+      }
+    } catch (e) {
+      // Safe fallback: keep "latest"
+      versionSel.innerHTML = '<option value="">latest</option>';
+    }
+  }
+
+
+  // ensure it refreshes when model changes
+  modelSel.addEventListener("change", () => loadModelVersions(false));
   function getCurrentBranchTag(){ return (getChat(currentId)?.branch && "v" + getChat(currentId).branch.active) || "v1"; }
 
   // Render a temporary assistant bubble (placeholder). Returns its idx.
@@ -857,10 +925,26 @@ function syncVaultMiniRail() {
       }
 
       // Click icon = behave like clicking the real vault row (opens viewer etc.)
-      btn.addEventListener("click", (e) => {
+      btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+        // MOBILE: toggle the drawer (same system as mobileDrawersV2)
+        if (mq.matches) {
+          const backdrop = document.getElementById("drawerBackdrop");
+
+          // close right drawer if open
+          document.body.classList.remove("mobile-right-open");
+
+          const openNow = !document.body.classList.contains("mobile-left-open");
+          document.body.classList.toggle("mobile-left-open", openNow);
+
+          if (backdrop) backdrop.hidden = !openNow;
+          return;
+        }
+
+        // DESKTOP: keep existing collapse behavior
+        apply(!document.body.classList.contains('sidebar-collapsed'));
       });
 
       rail.appendChild(btn);
@@ -1178,11 +1262,13 @@ function syncVaultMiniRail() {
         });
         // Success — clear and STOP here (prevents second "Thinking...")
         removeTyping(); setBusy(false);
+    try { const se = document.querySelector('#btn-stop'); if (se) se.disabled = true; } catch(_) {}
         return;
       } catch (err) {
         // CodeFlow failed — clean up and fall back to normal path ONCE
         try { GAIA.CodeFlow?.cancel?.(); } catch (_) {}
         removeTyping(); setBusy(false);
+    try { const se = document.querySelector('#btn-stop'); if (se) se.disabled = true; } catch(_) {}
 
         // If placeholder is still empty, drop it before fallback
         const c = getChat(currentId);
@@ -1203,7 +1289,10 @@ function syncVaultMiniRail() {
     }
 
 
-    if (GAIA.settings.streaming === 'sse' && !filesPresent) {
+    const mk = (modelSel?.value || "grok");
+    const sseAllowed = (mk === "grok" || mk === "gemini-pro");
+
+    if (GAIA.settings.streaming === 'sse' && !filesPresent && sseAllowed) {
       if (inputEl){ inputEl.value = ""; inputEl.style.height = "auto"; }
       setComposerHeight();
       return sendSSE(q);
@@ -1294,6 +1383,7 @@ function syncVaultMiniRail() {
       const fd = new FormData();
       fd.append("chatId", currentId);
       fd.append("model", modelSel?.value || "grok");
+      fd.append("model_version", versionSel?.value || "");
       fd.append("message", q);
       fd.append("history", JSON.stringify(histForApi));
       // exclude the just-pushed user message from history sent to backend
@@ -1347,9 +1437,10 @@ function syncVaultMiniRail() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: modelSel?.value || "grok",
+          model_version: versionSel?.value || "",
           message: q,
-          history: histForApi,  // exclude the just-pushed user message from history sent to backend
-          chatId: currentId 
+          history: histForApi,
+          chatId: currentId
         }),
         signal: GAIA_ABORT.signal
       };
@@ -1379,7 +1470,12 @@ function syncVaultMiniRail() {
         if (typeof updateChips === "function") updateChips();
       }
 
-      const reply = (data && data.reply) ? String(data.reply).trim() : "Error: empty response";
+      const reply =
+        (data && data.reply && String(data.reply).trim())
+          ? String(data.reply).trim()
+          : (data && data.ok === false && (data.error || data.message))
+              ? `Error: ${data.error || data.message}`
+              : "Error: empty response";
       const meta = { model: data.model, usage: data.usage };
 
       // Render ASSISTANT bubble
@@ -1497,7 +1593,8 @@ async function sendSSE(q) {
   // Reuse your existing path to push/render the user message:
   const userIdx = pushUserMessage(chat, q); // your helper that pushes + renders
   setBusy(true); // inline typing only
-
+  const stopEl = document.querySelector("#btn-stop");
+  if (stopEl) stopEl.disabled = false;
   // Create empty AI bubble placeholder to fill as text arrives:
   const aiIdx = pushAiMessage(chat, ""); // returns index
   const aiBubble = getBubbleEl(aiIdx);
@@ -1508,7 +1605,12 @@ async function sendSSE(q) {
   aiBubble?.classList.add("typing");
 
   const modelKey = (modelSel?.value || "grok");
-  const url = `/ask/stream?model=${encodeURIComponent(modelKey)}&q=${encodeURIComponent(q)}&history=${encodeURIComponent(JSON.stringify(histForApi))}`;
+  const mv = (versionSel?.value || "");
+  const url =
+    `/ask/stream?model=${encodeURIComponent(modelKey)}`
+    + `&model_version=${encodeURIComponent(mv)}`
+    + `&q=${encodeURIComponent(q)}`
+    + `&history=${encodeURIComponent(JSON.stringify(histForApi))}`;
 
   const es = new EventSource(url);
   currentSSE = es;
@@ -1522,23 +1624,52 @@ async function sendSSE(q) {
     try { es.close(); } catch (e) {}
     currentSSE = null;
     removeTyping(); setBusy(false);
+    try { const se = document.querySelector('#btn-stop'); if (se) se.disabled = true; } catch(_) {}
 
+    // Persist final text into chat history
     // Persist final text into chat history
     const c = getChat(currentId);
     if (c && c.history[aiIdx]) {
-      c.history[aiIdx].content = fullText.trim();
+      const renderedErr = (textTarget && textTarget.textContent) ? textTarget.textContent.trim() : "";
+      const finalPersist =
+        fullText.trim() ||
+        (!ok ? (renderedErr || "⚠️ Stream error. Try again.") : "");
+
+      c.history[aiIdx].content = finalPersist;
       c.history[aiIdx].time = Date.now();
       updateChat(c);
     }
+
     // ⬅️ NEW: persist streamed assistant reply once, after history is updated
     GAIA.Memory?.record(currentId, "assistant", fullText, { idx: aiIdx, stream: true });
 
+    // Regenerate integration (SSE path)
+    if (typeof Feature2RegenerateStop !== "undefined") {
+      try { Feature2RegenerateStop.noteLastInteraction({ userIndex: userIdx, sql: null }); } catch(_) {}
+    }
     // Final pretty Markdown render
     if (textTarget) {
-      textTarget.innerHTML = (GAIA.mdPlus ? GAIA.mdPlus(fullText) : fullText);
+      if (!fullText.trim() && ok === false) {
+        // keep whatever error text we already set
+      } else {
+        textTarget.innerHTML = (GAIA.mdPlus ? GAIA.mdPlus(fullText) : fullText);
+      }
     }
     scrollToEndSafe();
+    const stopEl = document.querySelector("#btn-stop");
+    if (stopEl) stopEl.disabled = true;
   };
+
+  es.addEventListener("gaia_error", (e) => {
+    try {
+      const info = JSON.parse(e.data || "{}");
+      const msg = info.error || "Stream error. Try again.";
+      if (textTarget) textTarget.textContent = "⚠️ " + msg;
+    } catch {
+      if (textTarget) textTarget.textContent = "⚠️ Stream error. Try again.";
+    }
+    finish(false);
+  });
 
   es.addEventListener("start", (e) => {
     try {
@@ -1683,7 +1814,7 @@ messagesEl?.addEventListener("click", (e) => {
     time: Date.now(),
     edited_from: anchor,
     edited: true,
-    branch_of: anchor,
+    branch_of: anchor,  
     branch_version: version
   };
   chat.history.splice(insertIdx, 0, newUser);
@@ -1919,7 +2050,7 @@ messagesEl?.addEventListener("click", (e) => {
   });
 
   GAIA.Memory?.init();
-    
+  loadModelVersions();
   ensureCurrent();
   try { window.AttachVault?.renderForChat(currentId); } catch {}
   if ((getChat(currentId)?.history || []).length === 0) {
@@ -2004,6 +2135,11 @@ document.addEventListener('DOMContentLoaded', () => {
   btn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Prevent double-fire (app.js has this block twice)
+    if (e.__gaiaLeftNavToggleOnce) return;
+    e.__gaiaLeftNavToggleOnce = true;
+
     if (mq.matches) return; // mobile ignores desktop collapse
     apply(!document.body.classList.contains('sidebar-collapsed'));
   });
