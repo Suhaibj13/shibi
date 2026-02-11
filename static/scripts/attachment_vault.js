@@ -67,11 +67,12 @@
   function ensurePanel() {
     const col = $(".chat-column");
     if (!col) return null;
-    let panel = $("#vault-panel");
+    let panel = document.getElementById("attachment-vault") || document.getElementById("vault-panel");
+    if(panel) return panel;
     if (!panel) {
       panel = document.createElement("aside");
-      panel.id = "vault-panel";
-      panel.className = "vault-panel";
+      panel.id = "attachment-vault";
+      panel.className = "vault-panel attachment-vault";
       panel.innerHTML = `
         <!-- collapse / expand vault (ChatGPT-style) -->
         <button id="toggle-vault"
@@ -123,7 +124,7 @@
 
   function measureAndSetWidth() {
     const side = $(".sidebar");
-    const panel = $("#vault-panel");
+    const panel = document.getElementById("attachment-vault") || document.getElementById("vault-panel");
     if (!side || !panel) return;
     const w = side.offsetWidth ? Math.max(56, Math.round(side.offsetWidth * 0.25)) : 60;
     panel.style.setProperty("--vault-w", w + "px");
