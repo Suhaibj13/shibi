@@ -5,6 +5,9 @@ import os, json, time, logging
 from models import resolve  # GAIA V5 model resolver
 from file_ai_router import route_and_answer
 
+from model_versions_manual import get_versions_catalog, UI_MODEL_KEYS, resolve_selected_model_id
+from low_cost_elm import est_messages_tokens, run_low_cost_elm
+
 def safe_json(obj, status=200):
     return jsonify(obj), status
 
@@ -24,12 +27,58 @@ except Exception:
 
 #from providers import gemini_provider, groq_provider
 #from providers import gemini_provider, groq_provider, openai_provider, anthropic_provider, cohere_provider
-from providers import gemini_provider, groq_provider
+from providers import gemini_provider, groq_provider, openai_provider
+
+# Optional providers (OpenAI/Anthropic/Cohere)
+# NOTE: In this codebase these provider wrappers may live either:
+#   1) inside the providers/ package  OR
+#   2) as top-level modules (e.g. openai_provider.py).
+# We support both so "ChatGPT" doesn't silently break.
+openai_provider = anthropic_provider = cohere_provider = None
+
+# Try providers/ package first
 try:
-    from providers import openai_provider, anthropic_provider, cohere_provider
+    from providers import openai_provider as _openai_p
+    openai_provider = _openai_p
 except Exception as e:
-    openai_provider = anthropic_provider = cohere_provider = None
-    log.warning("Optional providers disabled: %s", e)
+    log.warning("OpenAI provider (providers/) not available: %s", e)
+
+try:
+    from providers import anthropic_provider as _anthropic_p
+    anthropic_provider = _anthropic_p
+except Exception as e:
+    log.warning("Anthropic provider (providers/) not available: %s", e)
+
+try:
+    from providers import cohere_provider as _cohere_p
+    cohere_provider = _cohere_p
+except Exception as e:
+    log.warning("Cohere provider (providers/) not available: %s", e)
+
+# Fallback to top-level modules if present
+if openai_provider is None:
+    try:
+        import openai_provider as _openai_p2
+        openai_provider = _openai_p2
+        log.info("OpenAI provider loaded from top-level openai_provider.py")
+    except Exception as e:
+        log.warning("OpenAI provider (top-level) not available: %s", e)
+
+if anthropic_provider is None:
+    try:
+        import anthropic_provider as _anthropic_p2
+        anthropic_provider = _anthropic_p2
+        log.info("Anthropic provider loaded from top-level anthropic_provider.py")
+    except Exception:
+        pass
+
+if cohere_provider is None:
+    try:
+        import cohere_provider as _cohere_p2
+        cohere_provider = _cohere_p2
+        log.info("Cohere provider loaded from top-level cohere_provider.py")
+    except Exception:
+        pass
 import math, json  # make sure json is imported too
 
 FOLLOWUP_WORDS = {"explain", "elaborate", "more", "clarify", "details", "expand", "why"}
@@ -61,8 +110,6 @@ def build_messages(q: str, history=None, max_pairs: int = 8):
     msgs = [{
         "role": "system",
         "content": (
-            #"You are a neutral assistant. Do not mention your model or vendor name "
-            #"(e.g., Gemini, Claude, GPT, Groq) unless the user explicitly asks. "
             "Answer using the most recent context. If the user asks to explain/elaborate/clarify "
             "in a short prompt, treat it as a follow-up to the immediately previous assistant answer. "
             "When you include any code, ALWAYS wrap it in triple backticks with a language tag "
@@ -81,6 +128,7 @@ def build_messages(q: str, history=None, max_pairs: int = 8):
             hist = [m for m in hist if m.get("role") != "system"]
     except Exception:
         pass
+
     if _is_vague_followup(q):
         # Anchor to last assistant reply only
         last_assistant = next((m["content"] for m in reversed(hist) if m["role"] == "assistant"), "")
@@ -93,9 +141,6 @@ def build_messages(q: str, history=None, max_pairs: int = 8):
 
     msgs.append({"role": "user", "content": q})
     return msgs
-
-
-
 
 def _sse(event: str, data) -> str:
     return f"event: {event}\n" f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -135,6 +180,17 @@ def resolve_provider_and_model(raw_model: str):
 def index():
     return render_template("index.html")
 
+# Put this near the top (after imports)
+# UI_MODEL_KEYS is imported from model_versions_manual (single source of truth)
+@app.get("/models/versions")
+def models_versions():
+    """Return cached latest versions per UI model key (refresh every 3 days)."""
+    force = (request.args.get("force") == "1")
+    data = get_versions_catalog(UI_MODEL_KEYS, max_versions=5, force=force)
+    return jsonify({"ok": True, "data": data})
+
+
+
 CHEAP_FALLBACK_BY_PROVIDER = {
     "groq":      "llama-3.1-8b-instant",
     "openai":    "gpt-4o",
@@ -143,31 +199,114 @@ CHEAP_FALLBACK_BY_PROVIDER = {
     "cohere":    "command-r",
 }
 
-def make_reply(q: str, model_key: str = "grok", history=None):
+def make_reply(q: str, model_key: str = "grok", model_version: str = "", history=None):
     rm = resolve(model_key)
-    provider, model = rm.provider, rm.model_id
+    provider = rm.provider
+    # If the UI provided an explicit model version, prefer it; otherwise use resolver default.
+    # Pick model id:
+    # - if user explicitly picked a version -> use it
+    # - if "latest" (empty) -> use the first version from versions catalog if available
+    chosen_model = None
+
+    # normalize model_version
+    mv = (model_version or "").strip()
+    if mv.lower() == "latest":
+        mv = ""
+
+    # If UI sends labels (e.g., "5.2-codex"), try mapping label -> id from cached catalog
+
+    if mv:
+        mv = resolve_selected_model_id(model_key, mv)
+
+    model = (mv or rm.model_id)
+
+
     messages = build_messages(q, history)
 
-    # --- PATCH: ensure Gemini sees the SOP up front ---
-    prompt_text_for_best = None
-    if provider == "gemini":
-        # Flatten messages (system first) so Gemini treats SOP as instruction
-        prompt_text_for_best = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+    # Gemini is sometimes more consistent if it receives a flattened prompt, with system first.
+    # Provide a flattened prompt for ALL providers (prevents OpenAI wrapper returning empty on None prompt)
+    prompt_text_for_best = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+
+    def _normalize_out(out, mid):
+        # Provider wrappers may return dict or plain text
+        if isinstance(out, dict):
+            # Ensure keys exist
+            if "reply" not in out:
+                out["reply"] = out.get("text", "") or ""
+            if "model" not in out:
+                out["model"] = mid
+            return out
+        if isinstance(out, str):
+            return {"reply": out.strip(), "model": mid}
+        return {"reply": str(out), "model": mid}
 
     def _call(pv, mid, msgs, prompt_text=None):
-        if pv == "gemini":    return gemini_provider.generate(mid, prompt_text, msgs)
-        if pv == "groq":      return groq_provider.generate(mid, prompt_text, msgs)
-        if pv == "openai":    return openai_provider.generate(mid, prompt_text, msgs)
-        if pv == "anthropic": return anthropic_provider.generate(mid, prompt_text, msgs)
-        if pv == "cohere":    return cohere_provider.generate(mid, prompt_text, msgs)
+        if pv == "gemini":
+            return _normalize_out(gemini_provider.generate(mid, prompt_text, msgs), mid)
+        if pv == "groq":
+            return _normalize_out(groq_provider.generate(mid, prompt_text, msgs), mid)
+        if pv == "openai":
+            if openai_provider is None:
+                raise RuntimeError("OpenAI provider is not configured/loaded. Check OPENAI_API_KEY.")
+            return _normalize_out(openai_provider.generate(mid, prompt_text, msgs), mid)
+        if pv == "anthropic":
+            if anthropic_provider is None:
+                raise RuntimeError("Anthropic provider is not configured/loaded.")
+            return _normalize_out(anthropic_provider.generate(mid, prompt_text, msgs), mid)
+        if pv == "cohere":
+            if cohere_provider is None:
+                raise RuntimeError("Cohere provider is not configured/loaded.")
+            return _normalize_out(cohere_provider.generate(mid, prompt_text, msgs), mid)
         raise RuntimeError(f"Unknown provider '{pv}'")
 
-    used_model = model
-    try:
-        # pass the joined prompt for Gemini; others keep role-structured messages
-        result = _call(provider, model, messages, prompt_text_for_best)
-        used_model = (result.get("model") if isinstance(result, dict) else None) or model
 
+    def _call_for_model(mid, msgs):
+        # For Gemini, pass flattened prompt; for others, pass structured messages.
+        if provider == "gemini":
+            pt = "\n".join(f"{m['role']}: {m['content']}" for m in msgs)
+            return _call(provider, mid, msgs, pt)
+        return _call(provider, mid, msgs, None)
+
+    used_model = model
+
+    # =========================
+    # Low-cost ELM (token saver)
+    # =========================
+    # If the prompt+history is heavy, compress with a cheap model and then elaborate with the selected model.
+    # This keeps output quality closer to the expensive model while reducing expensive-token usage.
+    try:
+        total_tokens_est = est_messages_tokens(messages)
+    except Exception:
+        total_tokens_est = 0
+
+    if total_tokens_est >= 500:
+        # Pull latest 5 versions (cached for 3 days) and pick the cheapest-ish summarizer.
+        # Preference order:
+        # 1) 5th version from the dropdown list (oldest) if available
+        # 2) provider cheap fallback
+        try:
+            cat = get_versions_catalog([model_key], max_versions=5) or {}
+            vers = (cat.get(model_key) or {}).get("versions") or []
+            cheap_model = (vers[-1].get("id") if len(vers) >= 5 else None) or CHEAP_FALLBACK_BY_PROVIDER.get(provider, model)
+        except Exception:
+            cheap_model = CHEAP_FALLBACK_BY_PROVIDER.get(provider, model)
+
+        try:
+            final_text = run_low_cost_elm(
+                call_fn=lambda mid, msgs: _call_for_model(mid, msgs),
+                cheap_model=cheap_model,
+                expensive_model=model,
+                messages=messages,
+                user_question=q
+            )
+            return {"reply": final_text, "model_used": model}
+        except Exception:
+            # If ELM fails for any reason, fall back to normal single call (never break the chat).
+            pass
+
+    # Normal single call path
+    try:
+        result = _call(provider, model, messages, prompt_text_for_best)
         used_model = (result.get("model") if isinstance(result, dict) else None) or model
     except Exception as e1:
         cheap = CHEAP_FALLBACK_BY_PROVIDER.get(provider)
@@ -179,14 +318,12 @@ def make_reply(q: str, model_key: str = "grok", history=None):
             result = _call(provider, cheap, [], prompt)  # retry with CHEAP for same provider
             used_model = (result.get("model") if isinstance(result, dict) else None) or cheap
         except Exception as e2:
-            return {"reply": f"Error from {provider} ({model}) and fallback ({cheap}): {e2}",
-                    "model_used": used_model}
+            return {"reply": f"Error from {provider} ({model}) and fallback ({cheap}): {e2}", "model_used": used_model}
 
     text = (result.get("reply") if isinstance(result, dict) else "") or ""
+    if not str(text).strip():
+        text = f"Error: empty response from {provider} ({used_model}). Check provider wrapper + API key + model id."
     return {"reply": text, "model_used": used_model}
-
-
-
 
 
 @app.post("/ask")
@@ -198,6 +335,7 @@ def ask():
         if ctype.startswith("multipart/form-data"):
             message = (request.form.get("message") or "").strip()
             logical_model = (request.form.get("model") or "grok").strip().lower()
+            model_version = (request.form.get("model_version") or "").strip()
             style = (request.form.get("style") or "simple").strip().lower()
             files = request.files.getlist("files[]") if request.files else []
             # NEW: optional compact history from client
@@ -220,7 +358,7 @@ def ask():
                     message_with_ctx = message
             else:
                 message_with_ctx = message
-            
+
             # --- PATCH: prepend Space SOP (system entries) for the file-answering path ---
             try:
                 sys_texts = [m.get("content","") for m in (history or []) if m.get("role") == "system"]
@@ -228,28 +366,31 @@ def ask():
                     message_with_ctx = ("System instruction:\n" + "\n\n".join(sys_texts) + "\n\n" + message_with_ctx).strip()
             except Exception:
                 pass
+
             # Build messages for the file path as well (so follow-ups like "explain" stay on the last answer)
-            msgs = build_messages(message, history)
-            out = route_and_answer(message_with_ctx, files, logical_model_key=logical_model)
-            # after the route_and_answer(...) call
+            _ = build_messages(message, history)
+
+            try:
+                out = route_and_answer(message_with_ctx, files, logical_model_key=logical_model, model_version=model_version)
+            except TypeError:
+                out = route_and_answer(message_with_ctx, files, logical_model_key=logical_model)
+
             rm = resolve(logical_model)
             used_model = (out.get("model_used") or (out.get("meta") or {}).get("model_used")
-                        or CHEAP_FALLBACK_BY_PROVIDER.get(rm.provider, rm.model_id))
+                        or (model_version or CHEAP_FALLBACK_BY_PROVIDER.get(rm.provider, rm.model_id)))
             return jsonify({"ok": True, "reply": out.get("reply", ""), "model": used_model})
-
-            # If no files (unexpected here), fall through to JSON path
 
         # ---- 2) JSON path (no attachments) ----
         payload = request.get_json(silent=True) or {}
         q = (payload.get("message") or payload.get("q") or payload.get("query") or "").strip()
         model_key = (payload.get("model") or "grok").strip().lower()
+        model_version = (payload.get("model_version") or "").strip()
         history = payload.get("history") or []
 
         if not q:
             return jsonify({"ok": True, "reply": "Please type a question."})
 
-        # IMPORTANT: define `res` before using it
-        res = make_reply(q, model_key=model_key, history=history)   # returns {"reply": ..., "model_used": ...}
+        res = make_reply(q, model_key=model_key, model_version=model_version, history=history)
 
         return jsonify({
             "ok": True,
@@ -260,7 +401,8 @@ def ask():
     except Exception as e:
         # Always return JSON, never let an HTML error page reach the client
         return jsonify({"ok": False, "reply": f"Error: {e}"}), 500
-    
+
+
 @app.route("/ask/stream", methods=["GET"])
 def ask_stream():
     q = (request.args.get("q") or "").strip()
@@ -268,6 +410,7 @@ def ask_stream():
     # NEW: optional history for SSE (memory!)
     raw_hist = request.args.get("history") or "[]"
     model_key = (request.args.get("model") or "grok").strip().lower()
+    model_version = (request.args.get("model_version") or "").strip()
     try:
         history = json.loads(raw_hist)
     except Exception:
@@ -288,15 +431,14 @@ def ask_stream():
     @stream_with_context
     def event_stream():
         try:
-            res = make_reply(q, model_key=model_key, history=history)
+            res = make_reply(q, model_key=model_key, model_version=model_version, history=history)
 
             if isinstance(res, dict):
                 final_text = (res.get("reply") or "").strip()
-                used_model = res.get("model_used") or resolve(model_key).model_id
+                used_model = res.get("model_used") or (model_version or resolve(model_key).model_id)
             else:
-                # legacy shape: make_reply returned a string
                 final_text = (res or "").strip()
-                used_model = resolve(model_key).model_id
+                used_model = (model_version or resolve(model_key).model_id)
 
             # tell the UI which model actually produced this message
             yield _sse("start", {"ok": True, "model": used_model})
@@ -308,9 +450,8 @@ def ask_stream():
             yield _sse("done", {"ok": True})
 
         except Exception as e:
-            yield _sse("error", {"ok": False, "error": str(e)})
+            yield _sse("gaia_error", {"ok": False, "error": str(e)})
             yield _sse("done", {"ok": False})
-
 
     return Response(event_stream(),
                     mimetype="text/event-stream",
