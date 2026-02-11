@@ -3311,3 +3311,181 @@ body.vault-collapsed .vault-panel .vault-list{
     touch-action: none;
   }
 }
+/* ===== Model + Version dropdown composer layout fix (append at end) ===== */
+
+/* 5-column composer: model | version | + | input | send */
+.composer-inner{
+  grid-template-columns: 180px 110px 40px 1fr 44px;
+  align-items: center;
+}
+
+/* Version dropdown should look identical to model dropdown */
+#model-version,
+.model-version{
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px;
+  min-width: 0;
+  max-width: 100%;
+  height: 40px;
+}
+
+/* Keep model dropdown height consistent too */
+#model.model-select{
+  height: 40px;
+}
+
+/* Keep + and send aligned in the row */
+.more{
+  width: 40px;
+  height: 40px;
+}
+.send{
+  height: 40px;
+}
+
+/* Prevent input from causing wrapping/height jump */
+#input{
+  min-width: 0;
+}
+
+/* Responsive tuning: keep 5-column on medium widths */
+@media (max-width: 1100px){
+  .composer-inner{
+    grid-template-columns: 160px 100px 40px 1fr 44px;
+  }
+}
+
+/* Small screens: put dropdowns on first row, keep + and send on second row with input */
+@media (max-width: 820px){
+  .composer-inner{
+    grid-template-columns: 1fr 1fr;   /* row 1: model + version */
+    gap: 8px;
+  }
+  #model{ grid-column: 1 / 2; }
+  #model-version{ grid-column: 2 / 3; }
+
+  /* force +, input, send to flow nicely on next line */
+  .more{ grid-column: 1 / 2; }
+  #input{ grid-column: 1 / -1; }
+  .send{ grid-column: 2 / 3; justify-self: end; }
+}
+
+/* =========================
+   FIX: Composer buttons fit (regen/stop/send)
+   Keep same overall bar height; just compact controls.
+   ========================= */
+
+/* Replace fixed 44px send column with auto to fit 3 buttons */
+.composer-inner{
+  grid-template-columns: 170px 105px 36px 1fr auto !important;
+  align-items: center !important;
+}
+
+/* The injected right-side group (Regenerate | Stop | Send) */
+.composer-ctrls{
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Compact sizes without increasing bar height */
+.composer-ctrls .btn,
+.composer-ctrls .send{
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border-radius: 10px;
+}
+
+/* Make + button a bit smaller too */
+.more{
+  width: 36px !important;
+  height: 40px !important;
+}
+
+/* Dropdowns slightly tighter so everything fits */
+#model.model-select,
+#model-version,
+.model-version{
+  height: 40px !important;
+  padding: 6px 8px !important;
+}
+
+/* Ensure textarea can shrink properly in grid */
+#input{ min-width: 0 !important; }
+
+/* Mobile tuning: keep ONE row (do NOT wrap to 2 lines) */
+@media (max-width: 520px){
+  .composer-inner{
+    grid-template-columns: 135px 88px 34px 1fr auto !important;
+    gap: 6px !important;
+  }
+
+  #model.model-select,
+  #model-version,
+  .model-version{
+    font-size: 12px !important;
+    padding: 6px 8px !important;
+  }
+
+  #input{
+    font-size: 13px !important;
+    padding: 8px 6px !important;
+  }
+
+  .composer-ctrls .btn,
+  .composer-ctrls .send{
+    width: 32px !important;
+    min-width: 32px !important;
+  }
+}
+
+/* --- FIX: Assistant bubble left edge aligns with model/meta line --- */
+.bubble-wrap{
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;   /* default: left */
+}
+
+.msg-user .bubble-wrap{
+  align-items: flex-end;     /* keep user messages right-aligned */
+}
+
+.msg-ai .bubble-wrap{
+  align-items: flex-start;   /* assistant always left-aligned */
+}
+
+/* ===== GAIA PATCH ===== */
+/* 1) Keep assistant bubbles left-aligned with meta line (model name) */
+.msg-ai .bubble-wrap{ align-items:flex-start; }
+
+/* 2) Ensure the + (attach) button remains visible on narrower widths */
+@media (max-width:1100px){
+  .more{ display:inline-flex !important; }
+}
+
+/* ===== GAIA V2 PATCH: remove light-mode bubble color variance ===== */
+
+/* 1) Stop the moving shine overlays (main culprit) */
+[data-theme="light"] .bubble::before,
+[data-theme="light"] .bubble::after{
+  display: none !important;
+}
+
+/* 2) Make bubbles solid (no translucency + no backdrop blur) */
+[data-theme="light"] .msg-ai .bubble{
+  background: var(--bubble-ai) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-theme="light"] .msg-user .bubble{
+  background: var(--bubble-user) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
