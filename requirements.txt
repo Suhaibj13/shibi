@@ -13,3 +13,5 @@ cohere
 openai
 google-generativeai
 gunicorn
+firebase-admin==6.5.0
+google-cloud-firestore==2.16.1
