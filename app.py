@@ -502,6 +502,9 @@ def make_reply(q: str, model_key: str = "grok", model_version: str = "", history
 
 @app.post("/ask")
 def ask():
+    auth_err = _auth_required_or_401()
+    if auth_err:
+        return auth_err
     try:
         ctype = (request.content_type or "").lower()
 
@@ -588,7 +591,18 @@ def ask():
 @app.route("/ask/stream", methods=["GET"])
 def ask_stream():
     q = (request.args.get("q") or "").strip()
-
+    auth_err = _auth_required_or_401()
+    if auth_err:
+        def _err():
+            yield _sse("error", {"message": "auth_required"})
+            yield _sse("done", {"ok": False})
+        return Response(stream_with_context(_err()),
+                        mimetype="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                            "X-Accel-Buffering": "no",
+                        })
     # NEW: optional history for SSE (memory!)
     raw_hist = request.args.get("history") or "[]"
     model_key = (request.args.get("model") or "grok").strip().lower()
